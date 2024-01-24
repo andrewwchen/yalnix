@@ -1,0 +1,2 @@
+handle SIGILL SIGFPE SIGBUS SIGSEGV pass nostop noprint
+handle SIGALRM SIGUSR1 SIGUSR2 SIGCHLD SIGPOLL SIGIO pass nostop noprint
