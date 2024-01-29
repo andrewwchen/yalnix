@@ -1,10 +1,9 @@
-
 void Fork(){
     //Syscall which uses KCCopy utility to copy the parent pcb
 }
 
 void Exec(){
-    //Replaces the currently 
+    //Replace the currently running program in the calling process’s memory with the program stored in the file named by filename.
     //Syscall which throws away process address space
 }
 
