@@ -1,3 +1,5 @@
+#include <ykernel.h>
+
 void KernelFork(){
     //Syscall which uses KCCopy utility to copy the parent pcb
 }
@@ -7,7 +9,7 @@ void KernelExec(){
     //Syscall which throws away process address space
 }
 
-void KernelExit(){
+void KernelExit(UserContext uc){
     //Exit is the normal means of terminating a process. 
     //The current process is terminated, the integer status value is saved for possible later collection 
     //by the parent process on a call to Wait. All resources used by the calling process will be freed, 

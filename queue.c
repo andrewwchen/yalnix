@@ -13,6 +13,9 @@ struct Queue {
     struct QNode *front, *rear;
 };
 
+
+typedef struct Queue Queue_t;
+
 //create a new node
 struct QNode* newNode(int k)
 {
@@ -43,7 +46,7 @@ void enQueue(struct Queue* q, int k){
 
 }
 
-void deQueue(struct Queue* q)
+int deQueue(struct Queue* q)
 {
     // If queue is empty, return NULL.
     if (q->front == NULL)
@@ -57,6 +60,8 @@ void deQueue(struct Queue* q)
     // If front becomes NULL, then change rear also as NULL
     if (q->front == NULL)
         q->rear = NULL;
- 
+
+    int i = temp->key;
     free(temp);
+    return i;
 }
