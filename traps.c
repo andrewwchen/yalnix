@@ -9,6 +9,10 @@ void
 TrapKernel(UserContext uc)
 {
   int syscall_number = uc.code;
+
+  TracePrintf(1,"Syscall Code: %x\n", syscall_number);
+  // TODO: do we need to continue implementing
+
   // Arguments are in the user context registers, regs = uc.regs[gregs]
   // Makes the corresponding syscall to the syscall_number (see syscalls section)
 }
@@ -16,6 +20,9 @@ TrapKernel(UserContext uc)
 void
 TrapClock(UserContext uc)
 {
+  TracePrintf(1,"Clock Trap\n");
+  // TODO: do we need to continue implementing
+  
   // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
   // Else run the idle process
 }

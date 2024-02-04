@@ -4,13 +4,13 @@
 // 1/2024
 
 int
-PipeInit(int *pipe_idp)
+KernelPipeInit(int *pipe_idp)
 {
   // Create a new pipe; save its identifier at *pipe idp. In case of any error, the value ERROR is returned.
 }
 
 int
-PipeRead(int pipe_id, void *buf, int len)
+KernelPipeRead(int pipe_id, void *buf, int len)
 {
  // Read len consecutive bytes from the named pipe into the buffer starting at address buf, following the standard semantics:
  // If the pipe is empty, then block the caller. – If the pipe has plen ≤ len unread bytes, give all of them to the caller and return.
@@ -21,7 +21,7 @@ PipeRead(int pipe_id, void *buf, int len)
 }
 
 int
-PipeWrite(int pipe_id, void *buf, int len)
+KernelPipeWrite(int pipe_id, void *buf, int len)
 {
   /* Write the len bytes starting at buf to the named pipe. 
   As the pipe is a FIFO buffer, these bytes should be appended to the sequence of unread bytes currently in the pipe.)

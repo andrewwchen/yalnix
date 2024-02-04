@@ -4,7 +4,7 @@
 // 1/2024
 
 int
-TtyRead(int tty_id, void *buf, int len)
+KernelTtyRead(int tty_id, void *buf, int len)
 {
   // Read the next line of input from terminal tty id,
   // copying it into the buffer referenced by buf.
@@ -21,7 +21,8 @@ TtyRead(int tty_id, void *buf, int len)
   // On success, the number of bytes actually copied into the calling process’s buffer is returned;
   // in case of any error, the value ERROR is returne
 }
-int TtyWrite(int tty_id, void *buf, int len)
+int
+KernelTtyWrite(int tty_id, void *buf, int len)
 {
   // Write the contents of the buffer referenced by buf to the terminal tty id.
   // The length of the buffer in bytes is given by len.
