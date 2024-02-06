@@ -48,9 +48,9 @@ void enQueue(struct Queue* q, int k){
 
 int deQueue(struct Queue* q)
 {
-    // If queue is empty, return NULL.
+    // If queue is empty, return -1.
     if (q->front == NULL)
-        return;
+        return -1;
  
     // Store previous front and move front one node ahead
     struct QNode* temp = q->front;

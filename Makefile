@@ -12,7 +12,7 @@
 K_SRC_DIR = .
 
 # What are the kernel c and include files?
-K_SRCS = ./kernel.c ./traps.c
+K_SRCS = ./kernel.c ./traps.c ./process_controller.c ./basic_syscalls.c ./io_syscalls ./ipc_syscalls ./synchronize_syscalls.c ./queue.c
 K_INCS = 
 
 # Where's your user source?
@@ -112,13 +112,5 @@ $(KERNEL_ALL): $(KERNEL_OBJS) $(KERNEL_LIBS) $(KERNEL_INCS)
 
 $(USER_APPS): $(USER_OBJS) $(USER_INCS)
 	$(ETCDIR)/yuserbuild.sh $@ $(DDIR58) $@.o
-
-
-
-
-
-
-
-
 
 
