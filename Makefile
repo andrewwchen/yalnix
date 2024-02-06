@@ -7,12 +7,11 @@
 #	Nov 30, 2022
 
 
-
 # Where's your kernel source?
 K_SRC_DIR = .
 
 # What are the kernel c and include files?
-K_SRCS = ./kernel.c ./traps.c ./process_controller.c ./basic_syscalls.c ./io_syscalls ./ipc_syscalls ./synchronize_syscalls.c ./queue.c
+K_SRCS = ./kernel.c ./traps.c ./queue.c
 K_INCS = 
 
 # Where's your user source?
