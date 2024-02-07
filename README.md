@@ -2,6 +2,17 @@
 
 Winter 2024 CS58 Yalnix project
 
+Team: Tamier Baoyin, Andrew W. Chen
+
+kernel.c: Contains KernelStart and SetKernelBrk
+traps.c: Contains trap handlers
+
+
+
+
+
+
+
 FYI:
 
 Makefile:   a sample makefile (set up to build and link your kernel)
