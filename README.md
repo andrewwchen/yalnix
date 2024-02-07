@@ -5,6 +5,7 @@ Winter 2024 CS58 Yalnix project
 Team: Tamier Baoyin, Andrew W. Chen
 
 kernel.c: Contains KernelStart and SetKernelBrk
+
 traps.c: Contains trap handlers
 
 
