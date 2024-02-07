@@ -1,0 +1,6 @@
+PHYS_MEM_*
+*.o
+TRACE
+TTYLOG*
+DISK
+yalnix
