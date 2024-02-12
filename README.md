@@ -1,6 +1,25 @@
-# yalnix
+# Yalnix
 
 Winter 2024 CS58 Yalnix project
+
+Team: Tamier Baoyin, Andrew W. Chen
+
+## Files
+
+kernel.c: Contains KernelStart and SetKernelBrk
+
+traps.c: Contains trap handlers
+
+## How to run
+```
+make
+./yalnix
+
+```
+
+
+
+
 
 FYI:
 
