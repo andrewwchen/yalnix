@@ -3,6 +3,9 @@
 // Tamier Baoyin, Andrew Chen
 // 1/2024
 
+#ifndef _traps_h
+#define _traps_h
+
 #include <ykernel.h>
 
 void TrapUnknown(UserContext uc);
@@ -22,3 +25,5 @@ void TrapDisk(UserContext uc);
 void TrapTTYTransmit(UserContext uc);
 
 void TrapTTYReceive(UserContext uc);
+
+#endif

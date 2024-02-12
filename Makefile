@@ -11,7 +11,7 @@
 K_SRC_DIR = .
 
 # What are the kernel c and include files?
-K_SRCS = ./kernel.c ./traps.c
+K_SRCS = ./kernel.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c
 K_INCS = 
 
 # Where's your user source?

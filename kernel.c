@@ -4,16 +4,12 @@
 // 1/2024
 
 #include <ykernel.h>
-#include <kernel.h>
 #include <stdio.h>
 #include <traps.h>
-
-// bit vector which tracks allocated frames
-// "allocated_frames[frame] == 1" means that the frame is allocated
-int *allocated_frames;
-
-// number of frames in allocated_frames
-int num_frames;
+#include <frame_manager.h>
+#include <pte_manager.h>
+#include <process_controller.h>
+#include <load_program.h>
 
 // indicates whether virtual memory has been enabled
 // determines the behavior of SetKernelBrk()
@@ -34,56 +30,43 @@ pte_t kernel_pt[MAX_PT_LEN];
 // idle process pcb
 pcb_t *idle_pcb;
 
-// allocates a previously unallocated frame and returns it
-int AllocateFrame() {
-  // do not allocate frames that are below PMEM_BASE 
-  int min_frame = UP_TO_PAGE(PMEM_BASE)/PAGESIZE;
-  for (int frame = min_frame; frame < num_frames; frame++ ) {
-    if (allocated_frames[frame] == 0) {
-      allocated_frames[frame] = 1;
-      return frame;
-    }
+// Create a region 1 pcb for a user process
+pcb_t* CreateRegion1PCB()
+{
+  pcb_t *pcb = malloc(sizeof(pcb_t));
+  if (pcb == NULL) {
+    TracePrintf(1, "CreateRegion1PCB: failed to malloc pcb \n");
+    return NULL;
   }
-  TracePrintf(1, "Failed to allocate a frame\n");
-  return -1;
-}
+  bzero(pcb, sizeof(pcb_t));
 
-// deallocates a previously allocated frame
-int DeallocateFrame(int frame) {
-  int min_frame = UP_TO_PAGE(PMEM_BASE)/PAGESIZE;
-  if (frame < min_frame) {
-    TracePrintf(1, "Failed to deallocate frame %d: below minimum frame %d\n", frame, min_frame);
-    return -1;
+  // Create pcb kernel stack frames
+  int kernel_stack_frame_1 = AllocateFrame();
+  if (kernel_stack_frame_1 == -1) {
+    TracePrintf(1, "CreateRegion1PCB: failed to allocate kernel_stack_frame_1 \n");
+    return NULL;
   }
-  if (frame >= num_frames) {
-    TracePrintf(1, "Failed to deallocate frame %d: above maximum frame %d\n", frame, num_frames-1);
-    return -1;
+  int kernel_stack_frame_2 = AllocateFrame();
+  if (kernel_stack_frame_2 == -1) {
+    TracePrintf(1, "CreateRegion1PCB: failed to allocate kernel_stack_frame_2 \n");
+    return NULL;
   }
-  if (allocated_frames[frame] == 0) {
-    TracePrintf(1, "Failed to deallocate frame %d: frame is already deallocated\n", frame);
-    return -1;
-  }
-  allocated_frames[frame] = 0;
-  return 0;
-}
+  PopulateKernelPTE(&pcb->kernel_stack_pages[0], PROT_READ | PROT_WRITE, kernel_stack_frame_1);
+  PopulateKernelPTE(&pcb->kernel_stack_pages[1], PROT_READ | PROT_WRITE, kernel_stack_frame_2);
 
-// create a new PTE with the specified data
-// for use with user page table
-pte_t* CreateUserPTE(int prot, int pfn) {
-  pte_t* pte = malloc(sizeof(pte_t));
-  bzero(pte, sizeof(pte_t));
-  pte->valid = 1;
-  pte->prot = prot;
-  pte->pfn = pfn;
-  return pte;
-}
+  // Create pcb page table
+  pte_t *pt = malloc(sizeof(pte_t) * MAX_PT_LEN);
+  if (pt == NULL) {
+    TracePrintf(1, "CreateRegion1PCB: failed to malloc pt \n");
+    return NULL;
+  }
+  bzero(pt, sizeof(pte_t) * MAX_PT_LEN);
+  pcb->pt_addr = pt;
 
-// populates an existing PTE with the specified data
-// for use with the kernel page table
-void PopulateKernelPTE(pte_t* pte, int prot, int pfn) {
-  pte->valid = 1;
-  pte->prot = prot;
-  pte->pfn = pfn;
+  // Set pcb pid
+  pcb->pid = helper_new_pid(pt);
+
+  return pcb;
 }
 
 // idle program for idle pcb
@@ -104,9 +87,10 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   current_kernel_brk = (void*)(_orig_kernel_brk_page << PAGESHIFT);
 
   // Set up a bit vector to track allocated frames
-  num_frames = (pmem_size / PAGESIZE);
-  allocated_frames = malloc(num_frames * sizeof(int));
-  bzero(allocated_frames, (pmem_size / PAGESIZE) * sizeof(int));
+  if (InitializeFrames(pmem_size) == -1) {
+    TracePrintf(1, "KernelStart: failed to initialize allocated frames\n");
+    return;
+  }
 
   // Set up interrupt vector
   for (int trap_id = 0; trap_id < TRAP_VECTOR_SIZE; trap_id++)
@@ -132,20 +116,28 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   for (int page = _first_kernel_text_page; page < _first_kernel_data_page; page++)
   {
     PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_EXEC, page);
-    allocated_frames[page] = 1;
+    if (AllocateSpecificFrame(page) == -1) {
+      TracePrintf(1, "KernelStart: failed to allocate frame \n");
+      return;
+    }
   }
 
   for (int page = _first_kernel_data_page; page < ((unsigned int)current_kernel_brk >> PAGESHIFT); page++)
   {
     PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_WRITE, page);
-    allocated_frames[page] = 1;
+    if (AllocateSpecificFrame(page) == -1) {
+      TracePrintf(1, "KernelStart: failed to allocate frame \n");
+      return;
+    }
   }
 
   for (int page = (KERNEL_STACK_BASE >> PAGESHIFT); page < (KERNEL_STACK_LIMIT >> PAGESHIFT); page++)
   {
     PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_WRITE, page);
-
-    allocated_frames[page] = 1;
+    if (AllocateSpecificFrame(page) == -1) {
+      TracePrintf(1, "KernelStart: failed to allocate frame \n");
+      return;
+    }
   }
 
   // Enable Virtual Memory subsystem
@@ -156,43 +148,22 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   // Idle in user mode
 
   // Create idle pcb
-  idle_pcb = malloc(sizeof(pcb_t));
-  bzero(idle_pcb, sizeof(pcb_t));
+  idle_pcb = CreateRegion1PCB();
 
-  // Modify user context
+  // Modify idle pcb user context
   uctxt->pc = DoIdle;
   uctxt->sp = (void*) (VMEM_1_LIMIT - sp_offset);
   idle_pcb->uc = *uctxt;
 
-  // Create idle pcb page table
-  pte_t *idle_pt = malloc(sizeof(pte_t) * MAX_PT_LEN);
-  bzero(idle_pt, sizeof(pte_t) * MAX_PT_LEN);
-  idle_pcb->pt_addr = idle_pt;
-
-  // Create idle pcb kernel stack frames
-  int kernel_stack_frame_1 = AllocateFrame();
-  if (kernel_stack_frame_1 == -1) {
-    TracePrintf(1, "SetKernelBrk: failed to allocate kernel_stack_frame_1 \n");
+  // allocate frame for idle pcb user stack
+  pte_t *idle_pt = (idle_pcb->pt_addr);
+  pte_t *user_stack_pte = CreateUserPTE(PROT_READ | PROT_WRITE);
+  if (user_stack_pte == NULL) {
+    TracePrintf(1, "KernelStart: failed to create user_stack_pte \n");
     return;
   }
-  int kernel_stack_frame_2 = AllocateFrame();
-  if (kernel_stack_frame_2 == -1) {
-    TracePrintf(1, "SetKernelBrk: failed to allocate kernel_stack_frame_2 \n");
-    return;
-  }
-  PopulateKernelPTE(&idle_pcb->kernel_stack_pages[0], PROT_READ | PROT_WRITE, kernel_stack_frame_1);
-  PopulateKernelPTE(&idle_pcb->kernel_stack_pages[1], PROT_READ | PROT_WRITE, kernel_stack_frame_2);
 
-  // Set idle pcb pid
-  idle_pcb->pid = helper_new_pid(idle_pt);
-
-  // allocate frame for user stack
-  int user_stack_frame = AllocateFrame();
-  if (user_stack_frame == -1) {
-    TracePrintf(1, "SetKernelBrk: failed to allocate user_stack_frame \n");
-    return;
-  }
-  idle_pt[MAX_PT_LEN-1] = *CreateUserPTE(PROT_READ | PROT_WRITE, user_stack_frame);
+  idle_pt[MAX_PT_LEN-1] = *user_stack_pte;
 
   // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
@@ -202,29 +173,50 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   WriteRegister(REG_PTLR1, MAX_PT_LEN);
 
+  // Create init pcb
+  pcb_t *init_pcb = CreateRegion1PCB();
+  init_pcb->uc = *uctxt;
+
+  // TODO: How do I implement KCCopy? How can I get the stack frames from proc A to copy?
+  if (KernelContextSwitch(KCCopy, init_pcb, NULL) == -1) {
+    TracePrintf(1, "KernelStart: failed to copy idle_pcb into init_pcb\n");
+    return;
+  }
+  char* name = cmd_args[0];
+  if (name == NULL) {
+    name = "init";
+  }
+
+  LoadProgram(name, cmd_args, init_pcb);
+
+
   TracePrintf(1, "Leaving KernelStart\n");
 }
 
 // SetKernelBrk as defined in hardware.h
 int SetKernelBrk(void *addr)
 {
+  // check if addr is above red zone
   int red_zone = KERNEL_STACK_BASE - (2 * PAGESIZE);
   if ( addr > (void *) red_zone)
   {
     TracePrintf(1, "SetKernelBrk: addr %x above red zone %x\n", addr, red_zone);
     return -1;
   }
+  // check if addr is below original kernel brk
   int orig_kernel_brk = _orig_kernel_brk_page << PAGESHIFT;
   if ( addr < (void *) orig_kernel_brk)
   {
     TracePrintf(1, "SetKernelBrk: addr %x below original kernel brk %x\n", addr, orig_kernel_brk);
     return -1;
   }
+  // check if virtual memory has been enabled
   if (is_vm_enabled == 0)
   {
     current_kernel_brk = addr;
     return 0;
   }
+  // handle case where addr is above the current kernel brk
   if (addr >= current_kernel_brk)
   {
     int num_pages = UP_TO_PAGE(addr-current_kernel_brk) >> PAGESHIFT;
@@ -239,6 +231,7 @@ int SetKernelBrk(void *addr)
       }
       PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_WRITE, frame);
     }
+  // handle case where addr is below current kernel brk
   } else
   {
     int num_pages = DOWN_TO_PAGE(addr-current_kernel_brk) >> PAGESHIFT;
@@ -256,4 +249,3 @@ int SetKernelBrk(void *addr)
   }
   return 0;
 }
-

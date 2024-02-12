@@ -1,7 +1,11 @@
-#include <hardware.h>
+// Contains KCSwitch and KCCopy functions as defined in manual
+//
+// Tamier Baoyin, Andrew Chen
+// 1/2024
 
-
-
+#include <ykernel.h>
+#include <pcb.h>
+/*
 KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p){
   pcb_t *curr_pcb = (pcb_t*)curr_pcb_p;
   pcb_t *next_pcb = (pcb_t*)next_pcb_p;
@@ -45,12 +49,19 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
   //Free the current PCB
 
   return &next_pcb->kc;
-}
+}*/
 
 KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
-    //Copy current kernel context into current PCB by memcpy()
-    //Copy current current stack frame contents into current PCB's stack frames
-    //Unmap the kernel page after using it
-    //Return kc_in
-}
+  pcb_t *pcb = (pcb_t*) new_pcb_p;
+  
+  // copy current kc into pcb
+  memcpy(&(pcb->kc), kc_in, sizeof(KernelContext));
 
+  // copy current current stack frame contents into pcb's stack frames
+
+
+
+
+  //Unmap the kernel page after using it
+  return kc_in;
+}

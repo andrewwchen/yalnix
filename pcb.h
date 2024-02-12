@@ -1,3 +1,8 @@
+#ifndef _pcb_h
+#define _pcb_h
+
+#include <ykernel.h>
+
 // Process Control Block datastructure
 struct pcb
 {
@@ -12,3 +17,5 @@ struct pcb
 
 
 typedef struct pcb pcb_t;
+
+#endif
