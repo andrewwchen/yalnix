@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pcb.h>
 
 //linkedlist node
 struct QNode {
-    int key;
+    pcb_t *pcb;
     struct QNode* next;
 };
  
@@ -17,10 +18,10 @@ struct Queue {
 typedef struct Queue Queue_t;
 
 //create a new node
-struct QNode* newNode(int k)
+struct QNode* newNode(pcb_t *pcb)
 {
     struct QNode* temp = (struct QNode*)malloc(sizeof(struct QNode));
-    temp->key = k;
+    temp->pcb = pcb;
     temp->next = NULL;
     return temp;
 }
@@ -34,8 +35,8 @@ struct Queue* createQueue()
 }
  
 //add element to the end of queue
-void enQueue(struct Queue* q, int k){
-    struct QNode* temp = newNode(k);
+void enQueue(struct Queue* q, pcb_t *pcb){
+    struct QNode* temp = newNode(pcb);
     if (q->rear == NULL) {
         q->front = q->rear = temp;
         return;
@@ -46,11 +47,11 @@ void enQueue(struct Queue* q, int k){
 
 }
 
-int deQueue(struct Queue* q)
+pcb_t *deQueue(struct Queue* q)
 {
     // If queue is empty, return -1.
     if (q->front == NULL)
-        return -1;
+        return NULL;
  
     // Store previous front and move front one node ahead
     struct QNode* temp = q->front;
@@ -61,7 +62,7 @@ int deQueue(struct Queue* q)
     if (q->front == NULL)
         q->rear = NULL;
 
-    int i = temp->key;
+    pcb_t *i = temp->pcb;
     free(temp);
     return i;
 }

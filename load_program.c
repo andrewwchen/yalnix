@@ -174,9 +174,10 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
 
   for (int page = 0; page < MAX_PT_LEN; page++) {
     pte_t* pte = &pt[page];
-    if (FreeUserPTE(pte) == -1) {
-      TracePrintf(1, "LoadProgram: failed to free PTE at page number %d\n", page);
-      return ERROR;
+    if (pte->valid == 1) {
+      if (FreeUserPTE(pte) == -1) {
+        TracePrintf(1, "LoadProgram: failed to free PTE at page number %d\n", page);
+      }
     }
   }
 
@@ -191,6 +192,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
    * ==>> These pages should be marked valid, with a protection of
    * ==>> (PROT_READ | PROT_WRITE).
    */
+
   rc = CreateUserPTERegion(pt, text_pg1, text_pg1 + li.t_npg, PROT_READ | PROT_WRITE);
   if (rc == -1) {
     TracePrintf(1, "LoadProgram: failed create text PTE region\n");
@@ -313,6 +315,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
   *cpp++ = NULL;			/* the last argv is a NULL pointer */
   *cpp++ = NULL;			/* a NULL pointer for an empty envp */
 
+  TracePrintf(1, "LoadProgram: returning SUCCESS\n");
   return SUCCESS;
 }
 

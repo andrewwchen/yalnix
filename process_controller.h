@@ -5,10 +5,18 @@
 #ifndef _process_controller_h
 #define _process_controller_h
 
-#include <ykernel.h>
+#include <pcb.h>
 
-KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p);
+void InitQueues();
+
+void UpdateBlockedQueue();
+
+pcb_t *GetReadyPCB();
+
+void AddPCB(pcb_t *pcb);
 
 KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used);
+
+KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p);
 
 #endif

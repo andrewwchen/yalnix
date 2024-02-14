@@ -10,6 +10,7 @@
 #include <pte_manager.h>
 #include <process_controller.h>
 #include <load_program.h>
+#include <kernel.h>
 
 // indicates whether virtual memory has been enabled
 // determines the behavior of SetKernelBrk()
@@ -29,6 +30,10 @@ pte_t kernel_pt[MAX_PT_LEN];
 
 // idle process pcb
 pcb_t *idle_pcb;
+
+// current process pcb
+pcb_t *curr_pcb;
+
 
 // Create a region 1 pcb for a user process
 pcb_t* CreateRegion1PCB()
@@ -65,6 +70,7 @@ pcb_t* CreateRegion1PCB()
 
   // Set pcb pid
   pcb->pid = helper_new_pid(pt);
+  pcb->ready = 1;
 
   return pcb;
 }
@@ -165,10 +171,12 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   idle_pt[MAX_PT_LEN-1] = *user_stack_pte;
 
+  curr_pcb = idle_pcb;
+
   // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
-  // Set region 1 page table limit
+  // Set region 1 page table to idle
   WriteRegister(REG_PTBR1, (unsigned int) (idle_pcb->pt_addr));
 
   WriteRegister(REG_PTLR1, MAX_PT_LEN);
@@ -177,18 +185,33 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   pcb_t *init_pcb = CreateRegion1PCB();
   init_pcb->uc = *uctxt;
 
-  // TODO: How do I implement KCCopy? How can I get the stack frames from proc A to copy?
   if (KernelContextSwitch(KCCopy, init_pcb, NULL) == -1) {
     TracePrintf(1, "KernelStart: failed to copy idle_pcb into init_pcb\n");
     return;
   }
+
+  curr_pcb = init_pcb;
+  // TODO I need to switch to init_pcb to use load_program.
+  // Should all this switching stuff happen in KCCopy?
+  // Or should I invoke KCSWitch?
+
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+  // Set region 1 page table to init
+  // TODO: Should this be in KCCopy? Should KCCopy switch my process?
+  WriteRegister(REG_PTBR1, (unsigned int) (init_pcb->pt_addr));
+
+  // TODO: "LoadProgram: cannot open file 'init', i renamed to test/init. This good?"
   char* name = cmd_args[0];
   if (name == NULL) {
-    name = "init";
+    name = "test/init";
   }
 
   LoadProgram(name, cmd_args, init_pcb);
 
+  InitQueues();
+  AddPCB(idle_pcb);
 
   TracePrintf(1, "Leaving KernelStart\n");
 }
