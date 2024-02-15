@@ -28,9 +28,6 @@ void *ivt[TRAP_VECTOR_SIZE];
 // kernel page table
 pte_t kernel_pt[MAX_PT_LEN];
 
-// idle process pcb
-pcb_t *idle_pcb;
-
 // current process pcb
 pcb_t *curr_pcb;
 
@@ -70,7 +67,8 @@ pcb_t* CreateRegion1PCB()
 
   // Set pcb pid
   pcb->pid = helper_new_pid(pt);
-  pcb->ready = 1;
+  pcb->blocked = 0;
+  pcb->delay_ticks = 0;
 
   return pcb;
 }
@@ -154,7 +152,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   // Idle in user mode
 
   // Create idle pcb
-  idle_pcb = CreateRegion1PCB();
+  pcb_t *idle_pcb = CreateRegion1PCB();
 
   // Modify idle pcb user context
   uctxt->pc = DoIdle;
@@ -183,35 +181,36 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   // Create init pcb
   pcb_t *init_pcb = CreateRegion1PCB();
-  init_pcb->uc = *uctxt;
+  //init_pcb->uc = *uctxt;
 
   if (KernelContextSwitch(KCCopy, init_pcb, NULL) == -1) {
     TracePrintf(1, "KernelStart: failed to copy idle_pcb into init_pcb\n");
     return;
   }
 
-  curr_pcb = init_pcb;
-  // TODO I need to switch to init_pcb to use load_program.
-  // Should all this switching stuff happen in KCCopy?
-  // Or should I invoke KCSWitch?
-
   // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
-  // Set region 1 page table to init
-  // TODO: Should this be in KCCopy? Should KCCopy switch my process?
+  // Set region 1 page table to init pcb
   WriteRegister(REG_PTBR1, (unsigned int) (init_pcb->pt_addr));
 
-  // TODO: "LoadProgram: cannot open file 'init', i renamed to test/init. This good?"
+  // TODO: "LoadProgram: cannot open file 'init', i renamed to test/init. This good?" put this in readme
   char* name = cmd_args[0];
   if (name == NULL) {
     name = "test/init";
   }
 
   LoadProgram(name, cmd_args, init_pcb);
+  //uctxt->pc = init_pcb->uc.pc;
+
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+  // Set region 1 page table to init pcb
+  WriteRegister(REG_PTBR1, (unsigned int) (idle_pcb->pt_addr));
 
   InitQueues();
-  AddPCB(idle_pcb);
+  AddPCB(init_pcb);
 
   TracePrintf(1, "Leaving KernelStart\n");
 }
