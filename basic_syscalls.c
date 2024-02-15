@@ -1,3 +1,6 @@
+#include <kernel.h>
+#include <process_controller.h>
+
 int KernelFork(){
     //Syscall which uses KCCopy utility to copy the parent pcb
 }
@@ -21,15 +24,20 @@ int KernelWait(int *status_ptr){
 }
 int KernelGetPid(){
     //Returns the process ID of the calling process.
+    return curr_pcb->pid;
 }
 int KernelBrk(void *addr){
     // sets the operating system’s idea of the lowest location not used by the program (called the “break”) to addr
     //If any error is encountered , the value ERROR is returned.
 }
 int KernelDelay(int clock_ticks){
-    //The calling process is blocked until at least clock ticks clock interrupts have occurred after the call. Upon
-    //completion of the delay, the value 0 is returned.
-    //If clock ticks is 0, return is immediate. 
-    //If clock ticks is less than 0, ERROR is returned instead.
-
+    if (clock_ticks == 0) {
+		return 0;
+    }
+	if (clock_ticks < 0) {
+		return -1;
+    }
+    curr_pcb->delay_ticks += clock_ticks;
+    // do i immediately switch processes here?
+    return 0;
 }

@@ -5,47 +5,53 @@
 
 #include <ykernel.h>
 #include <kernel.h>
+#include <basic_syscalls.h>
 #include <process_controller.h>
 
 void
-TrapUnknown(UserContext uc)
+TrapUnknown(UserContext *uc)
 {
   TracePrintf(1,"Unknown Trap\n");
 }
 
-/*
-#define	YALNIX_FORK		( 0x1 | YALNIX_PREFIX)
-#define	YALNIX_EXEC		( 0x2 | YALNIX_PREFIX)
-#define	YALNIX_EXIT		( 0x3 | YALNIX_PREFIX)
-#define	YALNIX_WAIT		( 0x4 | YALNIX_PREFIX)
-#define YALNIX_GETPID           ( 0x5 | YALNIX_PREFIX)
-#define	YALNIX_BRK		( 0x6 | YALNIX_PREFIX)
-#define	YALNIX_DELAY		( 0x7 | YALNIX_PREFIX)
-
-*/
 void
-TrapKernel(UserContext uc)
+TrapKernel(UserContext *uc)
 {
-  int syscall_number = uc.code;
+  int syscall_number = uc->code;
 
   TracePrintf(1,"Syscall Code: %x\n", syscall_number);
 
   switch(syscall_number) {
     case YALNIX_FORK:
-    // YalnixFork();
-    break;
+      // int KernelFork();
+      TracePrintf(1,"KernelFork()\n");
+      break;
     case YALNIX_EXEC:
-    break;
+      TracePrintf(1,"KernelExec()\n");
+      // int KernelExec(char *filename, char **argvec);
+      break;
     case YALNIX_EXIT:
-    break;
+      TracePrintf(1,"KernelExit()\n");
+      // void KernelExit(int status);
+      break;
     case YALNIX_WAIT:
-    break;
+      TracePrintf(1,"KernelWait()\n");
+      // int KernelWait(int *status_ptr);
+      break;
     case YALNIX_GETPID:
-    break;
+      TracePrintf(1,"KernelGetPid()\n");
+      KernelGetPid();
+      break;
     case YALNIX_BRK:
-    break;
+      void *addr = (void *) uc->regs[0];
+      TracePrintf(1,"KernelBrk(%x)\n", addr);
+      KernelBrk(addr);
+      break;
     case YALNIX_DELAY:
-    break;
+      int clock_ticks = uc->regs[0];
+      TracePrintf(1,"KernelDelay(%d)\n", clock_ticks);
+      KernelDelay(clock_ticks);
+      break;
   }
 
   // Arguments are in the user context registers, regs = uc.regs[gregs]
@@ -56,45 +62,12 @@ void
 TrapClock(UserContext *uc)
 {
   TracePrintf(1,"Clock Trap\n");
-
-  // On the way into a handler copy the current UserContext into the PCB of the current proceess.
-  curr_pcb->uc = *uc; 
-  
-  // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
-  
-  pcb_t* ready_pcb = GetReadyPCB();
-  if (ready_pcb == NULL) {
-    TracePrintf(1,"No ready PCBs\n");
-    return;
-  }
-  TracePrintf(1,"Found a ready PCB\n");
-  
-  // KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p);
-  /*
-  if (KernelContextSwitch(KCSwitch, curr_pcb, ready_pcb) == -1) {
-    TracePrintf(1, "TrapClock: failed to switch from curr_pcb to ready_pcb\n");
-    return;
-  }*/
-
-  // Else run the idle process (which is always ready)
-
-  // On the way back into user mode make sure the hardware is using the region 1 page table for the current process
-  // Flush the TLB
-  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
-  // Set region 1 page table to the ready pcb
-  WriteRegister(REG_PTBR1, (unsigned int) (ready_pcb->pt_addr));
-
-  // TODO: IS the current PCB the ready pcb by now?
-  // copy the UserContext from the current PCB back to the uctxt address passed to the handler 
-  *uc = ready_pcb->uc;
-
-  // switch the pcbs from ready queue and current
-  AddPCB(curr_pcb);
-  curr_pcb = ready_pcb;
+  TryReadyPCBSwitch(uc);
+  TickDelayedPCBs();
 }
 
 void
-TrapIllegal(UserContext uc)
+TrapIllegal(UserContext *uc)
 {
   TracePrintf(1,"Illegal Trap\n");
   // Type of illegal instruction = uc.code
@@ -105,7 +78,7 @@ TrapIllegal(UserContext uc)
 }
 
 void
-TrapMemory(UserContext uc)
+TrapMemory(UserContext *uc)
 {
   TracePrintf(1,"Memory Trap\n");
   /* Type of disallowed memory access = 
@@ -116,7 +89,7 @@ TrapMemory(UserContext uc)
   Otherwise abort the process */
 }
 
-void TrapMath(UserContext uc)
+void TrapMath(UserContext *uc)
 {
   TracePrintf(1,"Math Trap\n");
   /* Type of math error = uc.code
@@ -124,13 +97,13 @@ void TrapMath(UserContext uc)
   Abort the process, exit(uc) */
 }
 
-void TrapDisk(UserContext uc)
+void TrapDisk(UserContext *uc)
 {
   TracePrintf(1,"Disk Trap\n");
   // This trap is specific to an optional feature and will not be implemented
 }
 
-void TrapTTYTransmit(UserContext uc)
+void TrapTTYTransmit(UserContext *uc)
 {
   TracePrintf(1,"TTYTransmit Trap\n");
   // This trap handler responds to TRAP_TTY_TRANSMIT
@@ -138,7 +111,7 @@ void TrapTTYTransmit(UserContext uc)
   // indicates that user output is ready
 }
 
-void TrapTTYReceive(UserContext uc)
+void TrapTTYReceive(UserContext *uc)
 {
   TracePrintf(1,"TTYReceive Trap\n");
   // This trap handler responds to TRAP_TTY_RECEIVE

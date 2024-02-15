@@ -8,22 +8,22 @@
 
 #include <ykernel.h>
 
-void TrapUnknown(UserContext uc);
+void TrapUnknown(UserContext *uc);
 
-void TrapKernel(UserContext uc);
+void TrapKernel(UserContext *uc);
 
-void TrapClock(UserContext uc);
+void TrapClock(UserContext *uc);
 
-void TrapIllegal(UserContext uc);
+void TrapIllegal(UserContext *uc);
 
-void TrapMemory(UserContext uc);
+void TrapMemory(UserContext *uc);
 
-void TrapMath(UserContext uc);
+void TrapMath(UserContext *uc);
 
-void TrapDisk(UserContext uc);
+void TrapDisk(UserContext *uc);
 
-void TrapTTYTransmit(UserContext uc);
+void TrapTTYTransmit(UserContext *uc);
 
-void TrapTTYReceive(UserContext uc);
+void TrapTTYReceive(UserContext *uc);
 
 #endif
