@@ -5,6 +5,7 @@
 
 #include <kernel.h>
 #include <process_controller.h>
+#include <pte_manager.h>
 
 int KernelFork(){
     //Syscall which uses KCCopy utility to copy the parent pcb
@@ -34,6 +35,53 @@ int KernelGetPid(){
 int KernelBrk(void *addr){
     // sets the operating system’s idea of the lowest location not used by the program (called the “break”) to addr
     //If any error is encountered , the value ERROR is returned.
+    
+    // check if addr is above red zone
+    int red_zone = (int) (curr_pcb->uc.sp) - (2 * PAGESIZE);
+    if ( addr > (void *) red_zone)
+    {
+        TracePrintf(1, "KernelBrk: addr %x above red zone %x\n", addr, red_zone);
+        return -1;
+    }
+    void *orig_brk = curr_pcb->orig_brk;
+    if ( addr < orig_brk)
+    {
+        TracePrintf(1, "KernelBrk: addr %x below original brk %x\n", addr, orig_brk);
+        return -1;
+    }
+    // handle case where addr is above the current kernel brk
+    if (addr >= curr_pcb->brk)
+    {
+        int num_pages = UP_TO_PAGE(addr-curr_pcb->brk) >> PAGESHIFT;
+        int start_page = UP_TO_PAGE(curr_pcb->brk) >> PAGESHIFT;
+        for (int page = start_page; page < num_pages; page++)
+        {
+            pte_t *pte = CreateUserPTE(PROT_READ | PROT_WRITE);
+            if (pte == NULL)
+            {
+                TracePrintf(1, "KernelBrk: failed to create PTE \n");
+                return -1;
+            }
+            pte_t *pt = curr_pcb->pt_addr;
+            pt[page] = *pte;
+        }
+    // handle case where addr is below current kernel brk
+    } else
+    {
+        int num_pages = DOWN_TO_PAGE(addr-curr_pcb->brk) >> PAGESHIFT;
+        int start_page = (unsigned int)curr_pcb->brk >> PAGESHIFT;
+        for (int page = start_page; page < num_pages; page--)
+        {
+            pte_t *pt = curr_pcb->pt_addr;
+            pte_t pte = pt[page];
+            if (FreeUserPTE(&pte) == -1)
+            {
+                TracePrintf(1, "SetKernelBrk: failed to free pte at page %d\n", page);
+                return -1;
+            }
+        }
+    }
+    curr_pcb->brk = addr;
 }
 int KernelDelay(int clock_ticks){
     if (clock_ticks == 0) {

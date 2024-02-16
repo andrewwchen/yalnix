@@ -315,6 +315,10 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
   *cpp++ = NULL;			/* the last argv is a NULL pointer */
   *cpp++ = NULL;			/* a NULL pointer for an empty envp */
 
+  void *brk = (void *) (li.id_end + PAGESIZE);
+  proc->orig_brk = brk;
+  proc->brk = brk;
+
   TracePrintf(1, "LoadProgram: returning SUCCESS\n");
   return SUCCESS;
 }

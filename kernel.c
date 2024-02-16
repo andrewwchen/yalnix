@@ -158,6 +158,8 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   uctxt->pc = DoIdle;
   uctxt->sp = (void*) (VMEM_1_LIMIT - sp_offset);
   idle_pcb->uc = *uctxt;
+  idle_pcb->brk = 0;
+  idle_pcb->orig_brk = 0;
 
   // allocate frame for idle pcb user stack
   pte_t *idle_pt = (idle_pcb->pt_addr);
