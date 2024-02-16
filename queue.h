@@ -1,3 +1,8 @@
+// Contains PCB queue implementation
+//
+// Tamier Baoyin, Andrew Chen
+// 2/2024
+
 #ifndef _queue_h
 #define _queue_h
 

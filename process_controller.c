@@ -1,4 +1,4 @@
-// Contains KCSwitch and KCCopy functions as defined in manual
+// Contains KCSwitch and KCCopy functions and PCB ready queue utility functions
 //
 // Tamier Baoyin, Andrew Chen
 // 1/2024

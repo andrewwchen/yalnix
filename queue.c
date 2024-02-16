@@ -1,3 +1,8 @@
+// Contains PCB queue implementation
+//
+// Tamier Baoyin, Andrew Chen
+// 2/2024
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcb.h>

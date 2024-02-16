@@ -1,9 +1,13 @@
+// Contains Process Control Block datastructure
+//
+// Andrew Chen
+// 2/2024
+
 #ifndef _pcb_h
 #define _pcb_h
 
 #include <ykernel.h>
 
-// Process Control Block datastructure
 struct pcb
 {
   UserContext uc;

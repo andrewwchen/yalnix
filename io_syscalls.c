@@ -1,4 +1,4 @@
-// Contains io syscalls as defined in yalnix.h
+// Contains TtyRead and TtyWrite syscall implementations
 //
 // Tamier Baoyin, Andrew Chen
 // 1/2024

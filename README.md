@@ -2,13 +2,47 @@
 
 Winter 2024 CS58 Yalnix project
 
-Team: Tamier Baoyin, Andrew W. Chen
+Team: Juan F. Suarez Burgos (f004s2y), Andrew W. Chen (f0040gy)
 
-## Files
+## FYI
 
-kernel.c: Contains KernelStart and SetKernelBrk
+The default loaded program is test/init rather than init
 
-traps.c: Contains trap handlers
+test/cp3.c contains a test program for testing cp3 syscall implementations
+
+To perform cp3 testing, run:
+
+```
+make
+./yalnix test/cp3
+
+```
+
+## Source Code Files
+
+kernel.c: Main file, contains KernelStart and SetKernelBrk
+
+load_program.c: Contains LoadProgram function based on provided template
+
+traps.c: Contains trap handlers to be placed in the interrupt vector
+
+queue.c: Contains PCB queue implementation
+
+frame_manager.c: Contains utility functions for managing allocated frames
+
+process_controller.c: Contains KCSwitch and KCCopy functions and PCB ready queue utility functions
+
+basic_syscalls.c: Contains Fork, Exec, Exit, Wait, GetPid, Brk, and Delay syscall implementations
+
+io_syscalls.c: Contains TtyRead and TtyWrite syscall implementations
+
+ipc_syscalls.c: Contains PipeInit, PipeRead, and PipeWrite syscalls implementations
+
+synchronize_syscalls.c: Contains syscall implementations for locks and cvars
+
+kernel.h: Contains globals defined in kernel.c
+
+pcb.h: Contains Process Control Block datastructure
 
 ## How to run
 ```
@@ -16,17 +50,3 @@ make
 ./yalnix
 
 ```
-
-
-
-
-
-FYI:
-
-Makefile:   a sample makefile (set up to build and link your kernel)
-template.c: a template for implementing LoadProgram
-
-test/: some sample user-level programs for testing
-fancy/: some rather fancy user-level programs
-
-dot.gdbinit: if you're using your own Linux installation, copy this to "~/.gdbinit"

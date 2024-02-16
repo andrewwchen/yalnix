@@ -1,6 +1,6 @@
 // Contains KernelStart and SetKernelBrk functions as defined in hardware.h
 //
-// Tamier Baoyin, Andrew Chen
+// Andrew Chen, Tamier Baoyin
 // 1/2024
 
 #include <ykernel.h>

@@ -1,3 +1,8 @@
+// Contains globals defined in kernel.c
+//
+// Andrew Chen 
+// 1/2024
+
 #ifndef _kernel_h_include
 #define _kernel_h_include
 

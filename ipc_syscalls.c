@@ -1,4 +1,4 @@
-// Contains ipc syscalls as defined in yalnix.h
+// Contains PipeInit, PipeRead, and PipeWrite syscalls implementations
 //
 // Tamier Baoyin, Andrew Chen
 // 1/2024

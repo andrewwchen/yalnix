@@ -1,4 +1,4 @@
-// Contains functions for managing allocated frames
+// Contains utility functions for managing allocated frames
 //
 // Andrew Chen
 // 2/2024

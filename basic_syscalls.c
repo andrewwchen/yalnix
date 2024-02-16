@@ -1,3 +1,8 @@
+// Contains Fork, Exec, Exit, Wait, GetPid, Brk, and Delay syscall implementations
+//
+// Tamier Baoyin, Andrew Chen
+// 2/2024
+
 #include <kernel.h>
 #include <process_controller.h>
 

@@ -4,3 +4,9 @@ TRACE
 TTYLOG*
 DISK
 yalnix
+/test/bigstack
+/test/cp3
+/test/forktest
+/test/init
+/test/torture
+/test/zero
