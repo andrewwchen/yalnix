@@ -8,7 +8,22 @@
 #include <pte_manager.h>
 
 int KernelFork(){
-    //Syscall which uses KCCopy utility to copy the parent pcb
+    // Syscall which uses KCCopy utility to copy the parent pcb
+
+    // Create child pcb
+    pcb_t *child_pcb = CreateRegion1PCB();
+    child_pcb->uc = curr_pcb->uc;
+
+    curr_pcb->uc.regs[0] = child_pcb->pid;
+    child_pcb->uc.regs[0] = 0;
+
+    if (KernelContextSwitch(KCCopy, child_pcb, NULL) == -1) {
+        TracePrintf(1, "KernelFork: failed to copy curr_pcb into child_pcb\n");
+        // set the return value in parent to be -1
+        return -1;
+    }
+    return 0;
+
 }
 
 int KernelExec(char *filename, char **argvec){
@@ -21,12 +36,15 @@ void KernelExit(int status){
     //The current process is terminated, the integer status value is saved for possible later collection 
     //by the parent process on a call to Wait. All resources used by the calling process will be freed, 
     //except for the saved status information. This call can never return.
+    // curr_pcb
+    //FreeUserPTE();
+    //ClearKernelPTE();
 
 }
 
 
 int KernelWait(int *status_ptr){
-    //Collect the process ID and exit status returned by a child process of the calling program.
+    // Collect the process ID and exit status returned by a child process of the calling program.
 }
 int KernelGetPid(){
     //Returns the process ID of the calling process.
@@ -82,6 +100,7 @@ int KernelBrk(void *addr){
         }
     }
     curr_pcb->brk = addr;
+    return 0;
 }
 int KernelDelay(int clock_ticks){
     if (clock_ticks == 0) {

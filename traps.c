@@ -17,14 +17,20 @@ TrapUnknown(UserContext *uc)
 void
 TrapKernel(UserContext *uc)
 {
+  // Arguments are in the user context registers, regs = uc.regs[gregs]
+  // Makes the corresponding syscall to the syscall_number (see syscalls section)
+
   int syscall_number = uc->code;
+  int rc;
 
   TracePrintf(1,"Syscall Code: %x\n", syscall_number);
 
   switch(syscall_number) {
     case YALNIX_FORK:
-      // int KernelFork();
       TracePrintf(1,"KernelFork()\n");
+      curr_pcb->uc = *uc;
+      rc = KernelFork();
+      *uc = curr_pcb->uc;
       break;
     case YALNIX_EXEC:
       TracePrintf(1,"KernelExec()\n");
@@ -32,7 +38,8 @@ TrapKernel(UserContext *uc)
       break;
     case YALNIX_EXIT:
       TracePrintf(1,"KernelExit()\n");
-      // void KernelExit(int status);
+      int status = uc->regs[0];
+      KernelExit(status);
       break;
     case YALNIX_WAIT:
       TracePrintf(1,"KernelWait()\n");
@@ -40,22 +47,22 @@ TrapKernel(UserContext *uc)
       break;
     case YALNIX_GETPID:
       TracePrintf(1,"KernelGetPid()\n");
-      KernelGetPid();
+      int pid = KernelGetPid();
+      uc->regs[0] = pid;
       break;
     case YALNIX_BRK:
       void *addr = (void *) uc->regs[0];
       TracePrintf(1,"KernelBrk(%x)\n", addr);
-      KernelBrk(addr);
+      rc = KernelBrk(addr);
+      uc->regs[0] = rc;
       break;
     case YALNIX_DELAY:
       int clock_ticks = uc->regs[0];
       TracePrintf(1,"KernelDelay(%d)\n", clock_ticks);
-      KernelDelay(clock_ticks);
+      rc = KernelDelay(clock_ticks);
+      uc->regs[0] = rc;
       break;
   }
-
-  // Arguments are in the user context registers, regs = uc.regs[gregs]
-  // Makes the corresponding syscall to the syscall_number (see syscalls section)
 }
 
 void
@@ -81,11 +88,23 @@ void
 TrapMemory(UserContext *uc)
 {
   TracePrintf(1,"Memory Trap\n");
+  if (uc->addr <= curr_pcb->brk) {
+    TracePrintf(1,"TrapMemory: addr not above brk\n");
+    //return -1; abort TODO
+    return;
+  }
+  if (uc->addr >= curr_pcb->uc.sp) {
+    TracePrintf(1,"TrapMemory: addr not below sp\n");
+    //return -1; abort TODO
+    return;
+  }
+  curr_pcb->uc.sp = uc->addr;
   /* Type of disallowed memory access = 
   Enlarge the stack to cover uc.addr if it is:
   In region 1
   And below the currently allocated memory for the stack
   And above the current brk(heap?)
+  curr_pcb->brk
   Otherwise abort the process */
 }
 

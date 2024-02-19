@@ -172,6 +172,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
    */
   pte_t* pt = proc->pt_addr;
 
+  TracePrintf(1, "LoadProgram: freeing old region 1\n");
   for (int page = 0; page < MAX_PT_LEN; page++) {
     pte_t* pte = &pt[page];
     if (pte->valid == 1) {
@@ -180,6 +181,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
       }
     }
   }
+  TracePrintf(1, "LoadProgram: finished freeing old region 1\n");
 
   /*
    * ==>> Then, build up the new region1.  

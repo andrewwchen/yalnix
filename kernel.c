@@ -6,6 +6,7 @@
 #include <ykernel.h>
 #include <stdio.h>
 #include <traps.h>
+#include <yuser.h>
 #include <frame_manager.h>
 #include <pte_manager.h>
 #include <process_controller.h>
@@ -69,6 +70,9 @@ pcb_t* CreateRegion1PCB()
   pcb->pid = helper_new_pid(pt);
   pcb->blocked = 0;
   pcb->delay_ticks = 0;
+  // pcb->child_pids; empty to start
+  pcb->parent_pid = -1;
+  pcb->waited_child_pid = -1;
 
   return pcb;
 }
@@ -149,15 +153,41 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   WriteRegister(REG_VM_ENABLE, 1);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
 
-  // Idle in user mode
+  // Create init pcb
+  pcb_t *init_pcb = CreateRegion1PCB();
+  init_pcb->uc = *uctxt;
 
+  curr_pcb = init_pcb;
+
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+  // Set region 1 page table to init
+  WriteRegister(REG_PTBR1, (unsigned int) (init_pcb->pt_addr));
+  WriteRegister(REG_PTLR1, MAX_PT_LEN);
+
+  char* name = cmd_args[0];
+  if (name == NULL) {
+    name = "test/init";
+  }
+
+  LoadProgram(name, cmd_args, init_pcb);
+  *uctxt = init_pcb->uc;
+
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+  InitQueues();
+  
   // Create idle pcb
   pcb_t *idle_pcb = CreateRegion1PCB();
 
   // Modify idle pcb user context
-  uctxt->pc = DoIdle;
-  uctxt->sp = (void*) (VMEM_1_LIMIT - sp_offset);
   idle_pcb->uc = *uctxt;
+  idle_pcb->uc.pc = DoIdle;
+  idle_pcb->uc.sp = (void*) (VMEM_1_LIMIT - sp_offset);
   idle_pcb->brk = 0;
   idle_pcb->orig_brk = 0;
 
@@ -171,48 +201,18 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   idle_pt[MAX_PT_LEN-1] = *user_stack_pte;
 
-  curr_pcb = idle_pcb;
-
-  // Flush the TLB
-  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
-
-  // Set region 1 page table to idle
-  WriteRegister(REG_PTBR1, (unsigned int) (idle_pcb->pt_addr));
-
-  WriteRegister(REG_PTLR1, MAX_PT_LEN);
-
-  // Create init pcb
-  pcb_t *init_pcb = CreateRegion1PCB();
-  //init_pcb->uc = *uctxt;
-
-  if (KernelContextSwitch(KCCopy, init_pcb, NULL) == -1) {
-    TracePrintf(1, "KernelStart: failed to copy idle_pcb into init_pcb\n");
+  if (KernelContextSwitch(KCCopy, idle_pcb, NULL) == -1) {
+    TracePrintf(1, "KernelStart: failed to copy init_pcb into idle_pcb\n");
     return;
   }
 
   // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
-  // Set region 1 page table to init pcb
-  WriteRegister(REG_PTBR1, (unsigned int) (init_pcb->pt_addr));
-
-  // TODO: "LoadProgram: cannot open file 'init', i renamed to test/init. This good?" put this in readme
-  char* name = cmd_args[0];
-  if (name == NULL) {
-    name = "test/init";
+  if (curr_pcb == idle_pcb) {
+    *uctxt = idle_pcb->uc;
   }
-
-  LoadProgram(name, cmd_args, init_pcb);
-  //uctxt->pc = init_pcb->uc.pc;
-
-  // Flush the TLB
-  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
-
-  // Set region 1 page table to init pcb
-  WriteRegister(REG_PTBR1, (unsigned int) (idle_pcb->pt_addr));
-
-  InitQueues();
-  AddPCB(init_pcb);
 
   TracePrintf(1, "Leaving KernelStart\n");
 }

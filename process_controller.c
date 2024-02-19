@@ -9,12 +9,26 @@
 #include <frame_manager.h>
 #include <pte_manager.h>
 
+int *exit_statuses;
+int exit_statuses_entries = 0;
+int exit_statuses_size = 4;
 Queue_t *ready_queue;
 Queue_t *temp_queue;
 
 void InitQueues() {
+  exit_statuses = malloc(exit_statuses_size * sizeof(int));
   ready_queue = createQueue();
   temp_queue = createQueue();
+}
+
+void SaveExitStatus(int status) {
+  int pid = curr_pcb->pid;
+  
+}
+
+int CheckForChildExitStatus(int child_pid) {
+
+  return -1;
 }
 
 void TickDelayedPCBs() {
@@ -62,8 +76,16 @@ void AddPCB(pcb_t *pcb) {
 KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
   pcb_t *pcb = (pcb_t*) new_pcb_p;
   
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+  
   // STEP 1: save proc A kernel context into new proc
   memcpy(&(pcb->kc), kc_in, sizeof(KernelContext));
+
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
   // STEP 2: copy kernel stack contents into new proc
   // make red zone valid
@@ -75,14 +97,20 @@ KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
   int red_zone_frame_2 = AllocateFrame();
   PopulateKernelPTE(&kernel_pt[red_zone_page_1], PROT_READ | PROT_WRITE, red_zone_frame_1);
   PopulateKernelPTE(&kernel_pt[red_zone_page_2], PROT_READ | PROT_WRITE, red_zone_frame_2);
+
+  // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
   // copy current kernel stack frame contents into red zone
   void *curr_kernel_stack_addr_1 = (void *) (KERNEL_STACK_BASE);
   void *curr_kernel_stack_addr_2 = (void *) (KERNEL_STACK_BASE + PAGESIZE);
   memcpy(red_zone_addr_1, curr_kernel_stack_addr_1, PAGESIZE);
   memcpy(red_zone_addr_2, curr_kernel_stack_addr_2, PAGESIZE);
+
+  // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
   // point current kernel stack pages at red zone frames
   DeallocateFrame(pcb->kernel_stack_pages[0].pfn);
@@ -90,10 +118,19 @@ KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
   pcb->kernel_stack_pages[0].pfn = red_zone_frame_1;
   pcb->kernel_stack_pages[1].pfn = red_zone_frame_2;
 
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
   // make red zone invalid
   kernel_pt[red_zone_page_1].valid = 0;
   kernel_pt[red_zone_page_2].valid = 0;
+  
+  // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+  
+  AddPCB(pcb);
 
   return kc_in;
 }
@@ -105,34 +142,42 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
   // STEP 1: save proc A kernel context
   memcpy(&(c_pcb->kc), kc_in, sizeof(KernelContext));
   
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+  
   // STEP 2: change kernel stack page table entries for B
   // save current kernel stack pages to current pcb
   c_pcb->kernel_stack_pages[0] = kernel_pt[KERNEL_STACK_BASE >> PAGESHIFT];
   c_pcb->kernel_stack_pages[1] = kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + 1];
+  
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
   // set current kernel stack pages to next pcb
-  kernel_pt[KERNEL_STACK_BASE >> PAGESHIFT] = c_pcb->kernel_stack_pages[0];
-  kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + 1] = c_pcb->kernel_stack_pages[1];
-
-  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  kernel_pt[KERNEL_STACK_BASE >> PAGESHIFT] = next_pcb->kernel_stack_pages[0];
+  kernel_pt[(KERNEL_STACK_BASE >> PAGESHIFT) + 1] = next_pcb->kernel_stack_pages[1];
 
   // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
   // Set region 1 page table to next pcb
   WriteRegister(REG_PTBR1, (unsigned int) (next_pcb->pt_addr));
 
+  // put the old pcb back in the queue
+  AddPCB(c_pcb);
+
+  curr_pcb = next_pcb;
+
   // STEP 3: return saved kernel context for B
   KernelContext *kcp = &(next_pcb->kc);
-  // TODO: this only works when i use the old kernel context and not the saved location. what's going on?
-  return kc_in;
+  return kcp;
 }
 
 
 void TryReadyPCBSwitch(UserContext *uc) {
-
-  // On the way into a handler copy the current UserContext into the PCB of the current proceess.
-  curr_pcb->uc = *uc; 
   
   // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
   
@@ -142,24 +187,16 @@ void TryReadyPCBSwitch(UserContext *uc) {
     return;
   }
   TracePrintf(1,"Found a ready PCB\n");
-  
+
+  // On the way into a handler (Transition 5), copy the current UserContext into the PCB of the current process
+  curr_pcb->uc = *uc; 
+
+  // Invoke your KCSwitch() function (Transitions 8 and 9) to change from the old process to the next process.
   if (KernelContextSwitch(KCSwitch, curr_pcb, ready_pcb) == -1) {
     TracePrintf(1, "TrapClock: failed to switch from curr_pcb to ready_pcb\n");
     return;
   }
 
-  // On the way back into user mode make sure the hardware is using the region 1 page table for the current process
-  // Flush the TLB
-  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
-  // Set region 1 page table to the ready pcb
-  WriteRegister(REG_PTBR1, (unsigned int) (ready_pcb->pt_addr));
-
-  // put the old pcb back in the queue
-  AddPCB(curr_pcb);
-
-  // copy the UserContext from the current PCB back to the uctxt address passed to the handler 
-  *uc = ready_pcb->uc;
-
-  // set the new pcb to the current pcb
-  curr_pcb = ready_pcb;
+  // copy the UserContext from the current PCB back to the uctxt address passed to the handler (so that we go back to the right place)
+  *uc = curr_pcb->uc;
 }
