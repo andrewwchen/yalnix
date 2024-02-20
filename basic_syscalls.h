@@ -6,9 +6,11 @@
 #ifndef _basic_syscalls_h_include
 #define _basic_syscalls_h_include
 
+#include <hardware.h>
+
 int KernelFork();
 int KernelExec(char *filename, char **argvec);
-void KernelExit(int status);
+void KernelExit(UserContext *uc, int status);
 int KernelWait(int *status_ptr);
 int KernelGetPid();
 int KernelBrk(void *addr);

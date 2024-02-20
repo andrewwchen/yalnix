@@ -12,6 +12,9 @@ int *allocated_frames;
 // number of frames in allocated_frames
 int num_frames;
 
+// number of allocated frames in allocated_frames
+int num_allocated_frames;
+
 // the lowest frame above PMEM_BASE
 int min_frame = UP_TO_PAGE(PMEM_BASE)/PAGESIZE;
 
@@ -41,6 +44,7 @@ int AllocateSpecificFrame(int frame) {
     TracePrintf(1, "AllocateSpecificFrame: Failed to allocate frame %d: frame is already allocated\n", frame);
     return -1;
   }
+  num_allocated_frames++;
   allocated_frames[frame] = 1;
   return 0;
 }
@@ -51,6 +55,7 @@ int AllocateFrame() {
   for (int frame = min_frame; frame < num_frames; frame++ ) {
     if (allocated_frames[frame] == 0) {
       allocated_frames[frame] = 1;
+      num_allocated_frames++;
       return frame;
     }
   }
@@ -73,5 +78,7 @@ int DeallocateFrame(int frame) {
     return -1;
   }
   allocated_frames[frame] = 0;
+
+  num_allocated_frames--;
   return 0;
 }

@@ -29,8 +29,7 @@ pte_t* CreateUserPTE(int prot) {
 }
 
 // populates an existing PTE with the specified data
-// for use with the kernel page table
-int PopulateKernelPTE(pte_t* pte, int prot, int pfn) {
+int PopulatePTE(pte_t* pte, int prot, int pfn) {
   if (pte->valid == 1) {
     TracePrintf(1, "PopulateKernelPTE: pte is already valid\n");
     return -1;
@@ -42,8 +41,7 @@ int PopulateKernelPTE(pte_t* pte, int prot, int pfn) {
 }
 
 // makes an existing pte invalid, sets prot to 0, and frees the corresponding pfn
-// for use with the kernel page table
-int ClearKernelPTE(pte_t* pte) {
+int ClearPTE(pte_t* pte) {
   if (pte->valid == 0) {
     return 0;
   }
@@ -63,13 +61,14 @@ int FreeUserPTE(pte_t* pte) {
     TracePrintf(1, "FreeUserPTE: failed to deallocate pfn\n");
     return -1;
   }
+  pte->valid = 0;
   free(pte);
   return 0;
 }
 
 // creates multiple new PTE with the specified prot, allocates pfn for each, and enters them into a page table between the specified pages
 // for use with user page tables
-int CreateUserPTERegion(pte_t* pt, int start_page, int end_page, int prot) {
+int PopulatePTERegion(pte_t* pt, int start_page, int end_page, int prot) {
   for (int page = start_page; page < end_page; page++)
   {
     pte_t* pte = CreateUserPTE(prot);
@@ -78,6 +77,19 @@ int CreateUserPTERegion(pte_t* pt, int start_page, int end_page, int prot) {
       return -1;
     }
     pt[page] = *pte;
+  }
+  return 0;
+}
+
+int ClearPT(pte_t* pt) {
+  for (int page = 0; page < MAX_PT_LEN; page++) {
+    pte_t* pte = &pt[page];
+    if (pte->valid == 1) {
+      if (ClearPTE(pte) == -1) {
+        TracePrintf(1, "ClearPT: failed to clear PTE at page number %d\n", page);
+        return -1;
+      }
+    }
   }
   return 0;
 }
