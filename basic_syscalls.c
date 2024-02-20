@@ -92,15 +92,30 @@ int KernelExec(char *filename, char **argvec){
     //Syscall which throws away process address space
 }
 
-void KernelExit(int status){
-    //Exit is the normal means of terminating a process. 
-    //The current process is terminated, the integer status value is saved for possible later collection 
-    //by the parent process on a call to Wait. All resources used by the calling process will be freed, 
-    //except for the saved status information. This call can never return.
+void KernelExit(UserContext *uc, int status){
+    // if the initial process exits, halt the system
+    int pid = curr_pcb->pid;
+    if (pid == init_pcb->pid) {
+        TracePrintf(1,"init_pcb exited, now halting\n");
+        Halt();
+    }
+
+    // the integer status value is saved for possible later collection by parent
     SaveExitStatus(curr_pcb->pid, status);
+
+    // all resources used by the calling process will be freed,
     ClearPT(curr_pcb->pt_addr);
     free(curr_pcb->pt_addr);
     free(curr_pcb->child_pids);
+    ClearPTE(&curr_pcb->kernel_stack_pages[0]);
+    ClearPTE(&curr_pcb->kernel_stack_pages[1]);
+    free(curr_pcb);
+    
+    // check if any parents were waiting for this child
+    TickChildWaitPCBs(pid, status);
+
+    // switch pcbs
+    SwitchPCB(uc, 0);
 }
 
 
@@ -134,7 +149,7 @@ int KernelBrk(void *addr){
     //If any error is encountered , the value ERROR is returned.
     
     // check if addr is above red zone
-    int red_zone = (int) (curr_pcb->uc.sp) - (2 * PAGESIZE);
+    int red_zone = (int) (curr_pcb->uc.sp) - PAGESIZE;
     if ( addr > (void *) red_zone)
     {
         TracePrintf(1, "KernelBrk: addr %x above red zone %x\n", addr, red_zone);

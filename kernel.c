@@ -33,6 +33,7 @@ pte_t kernel_pt[MAX_PT_LEN];
 pcb_t *curr_pcb;
 
 pcb_t *idle_pcb;
+pcb_t *init_pcb;
 
 // idle program for idle pcb
 void DoIdle(void)
@@ -111,7 +112,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
 
   // Create init pcb
-  pcb_t *init_pcb = NewPCB();
+  init_pcb = NewPCB();
   init_pcb->uc = *uctxt;
 
   curr_pcb = init_pcb;

@@ -83,8 +83,9 @@ void TickChildWaitPCBs(int child_pid, int status) {
   while (pcb != NULL) {
     if (PCBHasChild(pcb, child_pid)) {
       enQueue(ready_queue, pcb);
-      if (pcb->status_ptr != NULL) {
-        *(pcb->status_ptr)  = status;
+      int *status_ptr = (int *) (pcb->uc.regs[0]);
+      if (status_ptr != NULL) {
+        *status_ptr  = status;
       }
       pcb->uc.regs[1] = child_pid;
       // TODO how do you pass the pid and status ptr info back?

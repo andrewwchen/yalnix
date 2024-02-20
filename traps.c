@@ -42,10 +42,7 @@ TrapKernel(UserContext *uc)
     case YALNIX_EXIT:
       TracePrintf(1,"KernelExit()\n");
       int status = uc->regs[0];
-      pid = curr_pcb->pid;
-      KernelExit(status);
-      TickChildWaitPCBs(pid, status);
-      SwitchPCB(uc, 0);
+      KernelExit(uc, status);
       break;
     case YALNIX_WAIT:
       TracePrintf(1,"KernelWait()\n");
@@ -92,44 +89,44 @@ TrapClock(UserContext *uc)
 void
 TrapIllegal(UserContext *uc)
 {
-  TracePrintf(1,"Illegal Trap\n");
   // Type of illegal instruction = uc.code
   // Traceprintf 0 with process id and the type of illegal instruction
-  // uc.reg0 = uc.code
+  TracePrintf(0,"Illegal Trap: curr_pcb pid = %d, Illegal instruction = %d\n", curr_pcb->pid, uc->code);
+  
   // Abort the process
-  // KernalExit(uc);
+  KernelExit(uc, -1);
 }
 
 void
 TrapMemory(UserContext *uc)
 {
   TracePrintf(1,"Memory Trap\n");
-  if (uc->addr <= curr_pcb->brk) {
-    TracePrintf(1,"TrapMemory: addr not above brk\n");
-    //return -1; abort TODO
-    return;
+
+  // check if addr is above the brk + 1 page (for red zone)
+  if (uc->addr <= (curr_pcb->brk + PAGESIZE)) {
+    TracePrintf(1,"TrapMemory: addr not above brk + 1 page (for red zone)\n");
+    // abort the process
+    KernelExit(uc, -1);
   }
+
+  // check if addr is below the sp
   if (uc->addr >= curr_pcb->uc.sp) {
     TracePrintf(1,"TrapMemory: addr not below sp\n");
-    //return -1; abort TODO
-    return;
+    // abort the process
+    KernelExit(uc, -1);
   }
+  
+  // otherwise enlarge the stack to cover addr
   curr_pcb->uc.sp = uc->addr;
-  /* Type of disallowed memory access = 
-  Enlarge the stack to cover uc.addr if it is:
-  In region 1
-  And below the currently allocated memory for the stack
-  And above the current brk(heap?)
-  curr_pcb->brk
-  Otherwise abort the process */
 }
 
 void TrapMath(UserContext *uc)
 {
-  TracePrintf(1,"Math Trap\n");
-  /* Type of math error = uc.code
-  Traceprintf 0 with process id and the type of math error
-  Abort the process, exit(uc) */
+  // Traceprintf 0 with process id and the type of math error
+  TracePrintf(0,"Math Trap: curr_pcb pid = %d, type of math error = %d\n", curr_pcb->pid, uc->code);
+  
+  // Abort the process
+  KernelExit(uc, -1);
 }
 
 void TrapDisk(UserContext *uc)
