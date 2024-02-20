@@ -3,8 +3,11 @@
 
 int main(int argc, char *argv[])
 {
-    char *arglist[1];
-    arglist[0] = NULL;
-    TracePrintf(1, "exec test: About to Exec\n");
-    Exec("./test/exectest", arglist);
+    TracePrintf(1, "EXECTEST: exec'd successfully\n");
+    for (int i = 0; i < argc; i++) {
+        TracePrintf(1, "EXECTEST: argv[%d] = %s\n", i, argv[i]);
+    }
+    TracePrintf(1, "EXECTEST: exec'd successfully\n");
+    TracePrintf(1, "EXECTEST: about to Exit\n");
+    Exit(0);
 }

@@ -31,6 +31,12 @@ int main(void)
     rc = Fork();
     if (rc == 0) {
         TracePrintf(0,"CP4 CHILD2: Fork() rc=%d\n", rc);
+        char **cmd_argv = malloc(4*sizeof(char*));
+        cmd_argv[0] = "./test/exectest";
+        cmd_argv[1] = "param1";
+        cmd_argv[2] = "param2";
+        cmd_argv[3] = "param3";
+        Exec(cmd_argv[0], cmd_argv);
         Exit(0);
     }
     TracePrintf(0,"CP4 PARENT: Fork() rc=%d\n", rc);
