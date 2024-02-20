@@ -6,6 +6,7 @@
 #include <ykernel.h>
 #include <stdio.h>
 #include <traps.h>
+#include <yuser.h>
 #include <frame_manager.h>
 #include <pte_manager.h>
 #include <process_controller.h>
@@ -31,47 +32,8 @@ pte_t kernel_pt[MAX_PT_LEN];
 // current process pcb
 pcb_t *curr_pcb;
 
-
-// Create a region 1 pcb for a user process
-pcb_t* CreateRegion1PCB()
-{
-  pcb_t *pcb = malloc(sizeof(pcb_t));
-  if (pcb == NULL) {
-    TracePrintf(1, "CreateRegion1PCB: failed to malloc pcb \n");
-    return NULL;
-  }
-  bzero(pcb, sizeof(pcb_t));
-
-  // Create pcb kernel stack frames
-  int kernel_stack_frame_1 = AllocateFrame();
-  if (kernel_stack_frame_1 == -1) {
-    TracePrintf(1, "CreateRegion1PCB: failed to allocate kernel_stack_frame_1 \n");
-    return NULL;
-  }
-  int kernel_stack_frame_2 = AllocateFrame();
-  if (kernel_stack_frame_2 == -1) {
-    TracePrintf(1, "CreateRegion1PCB: failed to allocate kernel_stack_frame_2 \n");
-    return NULL;
-  }
-  PopulateKernelPTE(&pcb->kernel_stack_pages[0], PROT_READ | PROT_WRITE, kernel_stack_frame_1);
-  PopulateKernelPTE(&pcb->kernel_stack_pages[1], PROT_READ | PROT_WRITE, kernel_stack_frame_2);
-
-  // Create pcb page table
-  pte_t *pt = malloc(sizeof(pte_t) * MAX_PT_LEN);
-  if (pt == NULL) {
-    TracePrintf(1, "CreateRegion1PCB: failed to malloc pt \n");
-    return NULL;
-  }
-  bzero(pt, sizeof(pte_t) * MAX_PT_LEN);
-  pcb->pt_addr = pt;
-
-  // Set pcb pid
-  pcb->pid = helper_new_pid(pt);
-  pcb->blocked = 0;
-  pcb->delay_ticks = 0;
-
-  return pcb;
-}
+pcb_t *idle_pcb;
+pcb_t *init_pcb;
 
 // idle program for idle pcb
 void DoIdle(void)
@@ -119,7 +81,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   // Initialize page table entries to map physical memory 1:1 with virtual memory for text, data, heap, and stack
   for (int page = _first_kernel_text_page; page < _first_kernel_data_page; page++)
   {
-    PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_EXEC, page);
+    PopulatePTE(&kernel_pt[page], PROT_READ | PROT_EXEC, page);
     if (AllocateSpecificFrame(page) == -1) {
       TracePrintf(1, "KernelStart: failed to allocate frame \n");
       return;
@@ -128,7 +90,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   for (int page = _first_kernel_data_page; page < ((unsigned int)current_kernel_brk >> PAGESHIFT); page++)
   {
-    PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_WRITE, page);
+    PopulatePTE(&kernel_pt[page], PROT_READ | PROT_WRITE, page);
     if (AllocateSpecificFrame(page) == -1) {
       TracePrintf(1, "KernelStart: failed to allocate frame \n");
       return;
@@ -137,7 +99,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   for (int page = (KERNEL_STACK_BASE >> PAGESHIFT); page < (KERNEL_STACK_LIMIT >> PAGESHIFT); page++)
   {
-    PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_WRITE, page);
+    PopulatePTE(&kernel_pt[page], PROT_READ | PROT_WRITE, page);
     if (AllocateSpecificFrame(page) == -1) {
       TracePrintf(1, "KernelStart: failed to allocate frame \n");
       return;
@@ -149,70 +111,64 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   WriteRegister(REG_VM_ENABLE, 1);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
 
-  // Idle in user mode
+  // Create init pcb
+  init_pcb = NewPCB();
+  init_pcb->uc = *uctxt;
 
-  // Create idle pcb
-  pcb_t *idle_pcb = CreateRegion1PCB();
-
-  // Modify idle pcb user context
-  uctxt->pc = DoIdle;
-  uctxt->sp = (void*) (VMEM_1_LIMIT - sp_offset);
-  idle_pcb->uc = *uctxt;
-  idle_pcb->brk = 0;
-  idle_pcb->orig_brk = 0;
-
-  // allocate frame for idle pcb user stack
-  pte_t *idle_pt = (idle_pcb->pt_addr);
-  pte_t *user_stack_pte = CreateUserPTE(PROT_READ | PROT_WRITE);
-  if (user_stack_pte == NULL) {
-    TracePrintf(1, "KernelStart: failed to create user_stack_pte \n");
-    return;
-  }
-
-  idle_pt[MAX_PT_LEN-1] = *user_stack_pte;
-
-  curr_pcb = idle_pcb;
+  curr_pcb = init_pcb;
 
   // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
-  // Set region 1 page table to idle
-  WriteRegister(REG_PTBR1, (unsigned int) (idle_pcb->pt_addr));
-
+  // Set region 1 page table to init
+  WriteRegister(REG_PTBR1, (unsigned int) (init_pcb->pt_addr));
   WriteRegister(REG_PTLR1, MAX_PT_LEN);
 
-  // Create init pcb
-  pcb_t *init_pcb = CreateRegion1PCB();
-  //init_pcb->uc = *uctxt;
-
-  if (KernelContextSwitch(KCCopy, init_pcb, NULL) == -1) {
-    TracePrintf(1, "KernelStart: failed to copy idle_pcb into init_pcb\n");
-    return;
-  }
-
-  // Flush the TLB
-  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
-
-  // Set region 1 page table to init pcb
-  WriteRegister(REG_PTBR1, (unsigned int) (init_pcb->pt_addr));
-
-  // TODO: "LoadProgram: cannot open file 'init', i renamed to test/init. This good?" put this in readme
   char* name = cmd_args[0];
   if (name == NULL) {
     name = "test/init";
   }
 
   LoadProgram(name, cmd_args, init_pcb);
-  //uctxt->pc = init_pcb->uc.pc;
+  *uctxt = init_pcb->uc;
 
   // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
-  // Set region 1 page table to init pcb
-  WriteRegister(REG_PTBR1, (unsigned int) (idle_pcb->pt_addr));
-
   InitQueues();
-  AddPCB(init_pcb);
+  
+  // Create idle pcb
+  idle_pcb = NewPCB();
+
+  // Modify idle pcb user context
+  idle_pcb->uc = *uctxt;
+  idle_pcb->uc.pc = DoIdle;
+  idle_pcb->uc.sp = (void*) (VMEM_1_LIMIT - sp_offset);
+  idle_pcb->brk = 0;
+  idle_pcb->orig_brk = 0;
+
+  // allocate frame for idle pcb user stack
+  pte_t *idle_pt = idle_pcb->pt_addr;
+  int rc = PopulatePTE(&idle_pt[MAX_PT_LEN-1], PROT_READ | PROT_WRITE, AllocateFrame());
+  if (rc == -1) {
+    TracePrintf(1, "KernelStart: failed to populate idle user stack pte \n");
+    return;
+  }
+
+  if (KernelContextSwitch(KCCopy, idle_pcb, NULL) == -1) {
+    TracePrintf(1, "KernelStart: failed to copy init_pcb into idle_pcb\n");
+    return;
+  }
+
+  // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+  if (curr_pcb == idle_pcb) {
+    *uctxt = idle_pcb->uc;
+  }
 
   TracePrintf(1, "Leaving KernelStart\n");
 }
@@ -220,6 +176,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 // SetKernelBrk as defined in hardware.h
 int SetKernelBrk(void *addr)
 {
+  TracePrintf(1, "SetKernelBrk: entering\n");
   // check if addr is above red zone
   int red_zone = KERNEL_STACK_BASE - (2 * PAGESIZE);
   if ( addr > (void *) red_zone)
@@ -243,9 +200,12 @@ int SetKernelBrk(void *addr)
   // handle case where addr is above the current kernel brk
   if (addr >= current_kernel_brk)
   {
+    TracePrintf(1, "SetKernelBrk: addr greater than\n");
     int num_pages = UP_TO_PAGE(addr-current_kernel_brk) >> PAGESHIFT;
     int start_page = UP_TO_PAGE(current_kernel_brk) >> PAGESHIFT;
-    for (int page = start_page; page < num_pages; page++)
+    TracePrintf(1, "SetKernelBrk: num_pages=%d\n", num_pages);
+    TracePrintf(1, "SetKernelBrk: start_page=%d\n", start_page);
+    for (int page = start_page; page < start_page+num_pages; page++)
     {
       int frame = AllocateFrame();
       if (frame == -1)
@@ -253,14 +213,14 @@ int SetKernelBrk(void *addr)
         TracePrintf(1, "SetKernelBrk: failed to allocate frame \n");
         return -1;
       }
-      PopulateKernelPTE(&kernel_pt[page], PROT_READ | PROT_WRITE, frame);
+      PopulatePTE(&kernel_pt[page], PROT_READ | PROT_WRITE, frame);
     }
   // handle case where addr is below current kernel brk
   } else
   {
     int num_pages = DOWN_TO_PAGE(addr-current_kernel_brk) >> PAGESHIFT;
     int start_page = (unsigned int)current_kernel_brk >> PAGESHIFT;
-    for (int page = start_page; page < num_pages; page--)
+    for (int page = start_page; page > start_page-num_pages; page--)
     {
       int frame = kernel_pt[page].pfn;
       if (DeallocateFrame(frame) == -1)

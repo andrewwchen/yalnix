@@ -10,5 +10,7 @@
 #include <pcb.h>
 extern pte_t kernel_pt[MAX_PT_LEN];
 extern pcb_t *curr_pcb;
+extern pcb_t *idle_pcb;
+extern pcb_t *init_pcb;
 
 #endif

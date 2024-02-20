@@ -8,6 +8,10 @@
 
 #include <pcb.h>
 
+void SaveExitStatus(int pid, int status);
+
+int GetExitStatus(int pid);
+
 void InitQueues();
 
 void UpdateBlockedQueue();
@@ -20,8 +24,10 @@ KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used);
 
 KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p);
 
-
 void TickDelayedPCBs();
-void TryReadyPCBSwitch(UserContext *uc);
+
+void TickChildWaitPCBs(int child_pid, int status);
+
+void SwitchPCB(UserContext *uc, int requeue);
 
 #endif

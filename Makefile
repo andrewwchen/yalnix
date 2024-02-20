@@ -11,14 +11,14 @@
 K_SRC_DIR = .
 
 # What are the kernel c and include files?
-K_SRCS = ./kernel.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c ./queue.c ./process_controller.c ./basic_syscalls.c ./io_syscalls.c ./ipc_syscalls.c ./synchronize_syscalls.c
+K_SRCS = ./kernel.c ./pcb.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c ./queue.c ./process_controller.c ./basic_syscalls.c ./io_syscalls.c ./ipc_syscalls.c ./synchronize_syscalls.c
 K_INCS = 
 
 # Where's your user source?
 U_SRC_DIR = ./test
 
 # What are the user c and include files?
-U_SRCS = ./init.c ./cp3.c ./exectest.c
+U_SRCS = ./init.c ./cp3.c ./cp4.c
 U_INCS = 
 
 
@@ -92,7 +92,7 @@ CPPFLAGS=  -D_FILE_OFFSET_BITS=64 -m32 -fno-builtin -I. -I$(INCDIR) -g -DLINUX -
 all: $(ALL)	
 
 clean:
-	rm -f *.o *~ TTYLOG* TRACE $(YALNIX_OUTPUT) $(USER_APPS) $(KERNEL_OBJS) $(USER_OBJS) core.* ~/core
+	rm -f *.o *~ TTYLOG* TRACE $(YALNIX_OUTPUT) $(USER_APPS) $(KERNEL_OBJS) $(USER_OBJS) core.* ~/core PHYS_MEM_*
 
 count:
 	wc $(KERNEL_SRCS) $(USER_SRCS)

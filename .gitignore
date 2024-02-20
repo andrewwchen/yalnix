@@ -6,6 +6,8 @@ DISK
 yalnix
 /test/bigstack
 /test/cp3
+/test/cp4
+/test/cp5
 /test/forktest
 /test/init
 /test/torture

@@ -6,6 +6,9 @@
 #ifndef _frame_manager_h
 #define _frame_manager_h
 
+extern int num_frames;
+extern int num_allocated_frames;
+
 // initializes bit vector to track allocated frames
 int InitializeFrames(int pmem_size);
 
