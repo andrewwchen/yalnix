@@ -9,6 +9,8 @@
 #include <pcb.h>
 #include <pte_manager.h>
 
+#include "load_program.h"
+
 int KernelFork(){
     // Syscall which uses KCCopy utility to copy the parent pcb
 
@@ -90,6 +92,21 @@ int KernelFork(){
 int KernelExec(char *filename, char **argvec){
     //Replace the currently running program in the calling process’s memory with the program stored in the file named by filename.
     //Syscall which throws away process address space
+    ENTER;
+    int rc = LoadProgram(filename, argvec, curr_pcb);
+    TracePrintf(1, "----KernelExec-------- left load_program\n");
+    if(rc == KILL){
+        // TODO: call kernel exit
+        // KernelExit(status = load_program KILL)
+        TracePrintf(1, "----KernelExec-------- kernel exec kill & exit \n");
+        return KILL;
+    }
+    else if (rc == ERROR){
+        TracePrintf(1, "----KernelExec-------- kernel exec error & exit \n");
+        return ERROR;
+    } 
+    LEAVE;
+    return SUCCESS;
 }
 
 void KernelExit(UserContext *uc, int status){

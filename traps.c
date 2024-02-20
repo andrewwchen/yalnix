@@ -37,6 +37,25 @@ TrapKernel(UserContext *uc)
       break;
     case YALNIX_EXEC:
       TracePrintf(1,"KernelExec()\n");
+      // ! TODO: figure out memory management for exec
+      // memcpy(&curr_pcb->uc, uc, sizeof(UserContext));
+      // figure out the path & argvec
+      char* filename = (char*)(uc->regs[0]);
+      char** argvec = (char**)(uc->regs[1]);
+      TracePrintf(1, "--- TRAP KERNEL --- filename: %s\n", filename);
+      TracePrintf(1, "--- TRAP KERNEL --- argv: %s\n", argvec);
+
+      int rc = KernelExec(filename, argvec);
+      if(rc == SUCCESS){
+        // memcpy ?
+        // ! TODO: start executing from pc 
+        *uc = curr_pcb->uc;
+        
+      }else{
+        TracePrintf(1, "---EEEE--- exec failed\n");
+        //return -1;
+      }
+
       // int KernelExec(char *filename, char **argvec);
       break;
     case YALNIX_EXIT:
