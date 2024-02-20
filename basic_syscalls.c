@@ -94,16 +94,19 @@ int KernelExec(char *filename, char **argvec){
     //Syscall which throws away process address space
     ENTER;
     int rc = LoadProgram(filename, argvec, curr_pcb);
-    TracePrintf(3, "----KernelExec-------- left load_program\n");
+    TracePrintf(1, "----KernelExec-------- left load_program\n");
     if(rc == KILL){
         // TODO: call kernel exit
         // KernelExit(status = load_program KILL)
+        TracePrintf(1, "----KernelExec-------- kernel exec kill & exit \n");
+        return KILL;
     }
     else if (rc == ERROR){
-        TracePrintf(3, "----KernelExec-------- kernel exec error & exit \n");
+        TracePrintf(1, "----KernelExec-------- kernel exec error & exit \n");
         return ERROR;
     } 
     LEAVE;
+    return SUCCESS;
 }
 
 void KernelExit(UserContext *uc, int status){

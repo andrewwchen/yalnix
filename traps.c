@@ -49,8 +49,11 @@ TrapKernel(UserContext *uc)
       if(rc == SUCCESS){
         // memcpy ?
         // ! TODO: start executing from pc 
+        *uc = curr_pcb->uc;
+        
       }else{
         TracePrintf(1, "---EEEE--- exec failed\n");
+        //return -1;
       }
 
       // int KernelExec(char *filename, char **argvec);
