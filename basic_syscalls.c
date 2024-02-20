@@ -6,6 +6,7 @@
 #include <kernel.h>
 #include <process_controller.h>
 #include <frame_manager.h>
+#include <pcb.h>
 #include <pte_manager.h>
 
 int KernelFork(){
@@ -23,6 +24,9 @@ int KernelFork(){
 
     // set child's parent as the parent
     child_pcb->parent_pid = curr_pcb->pid;
+
+    // set parent's child to to the child
+    PCBAddChild(curr_pcb, child_pcb->pid);
     
     // set child's brk as the parent's
     child_pcb->brk = curr_pcb->brk;
@@ -102,6 +106,24 @@ void KernelExit(int status){
 
 int KernelWait(int *status_ptr){
     // Collect the process ID and exit status returned by a child process of the calling program.
+
+    // If the calling process has no remaining child processess (exited or running), then this call returns immediately with ERROR
+    if (curr_pcb->child_pids_count == 0) {
+        return -1;
+    }
+
+    // If the caller has an exited child whose information has not yet been collected via Wait, then this call will return immediately with that information.
+    for (int i = 0; i < curr_pcb->child_pids_count; i++) {
+        int child_pid = curr_pcb->child_pids[i];
+        int status = GetExitStatus(child_pid);
+        if (status != -1) {
+            if (status_ptr != NULL) {
+                *status_ptr = status;
+            }
+            return child_pid;
+        }
+    }
+    return 0;
 }
 int KernelGetPid(){
     //Returns the process ID of the calling process.
@@ -129,7 +151,7 @@ int KernelBrk(void *addr){
     {
         int num_pages = UP_TO_PAGE(addr-curr_pcb->brk) >> PAGESHIFT;
         int start_page = UP_TO_PAGE(curr_pcb->brk) >> PAGESHIFT;
-        for (int page = start_page; page < num_pages; page++)
+        for (int page = start_page; page < start_page+num_pages; page++)
         {
             pte_t *pte = CreateUserPTE(PROT_READ | PROT_WRITE);
             if (pte == NULL)
@@ -138,17 +160,17 @@ int KernelBrk(void *addr){
                 return -1;
             }
             pte_t *pt = curr_pcb->pt_addr;
-            pt[page] = *pte;
+            pt[page-MAX_PT_LEN] = *pte;
         }
     // handle case where addr is below current kernel brk
     } else
     {
         int num_pages = DOWN_TO_PAGE(addr-curr_pcb->brk) >> PAGESHIFT;
         int start_page = (unsigned int)curr_pcb->brk >> PAGESHIFT;
-        for (int page = start_page; page < num_pages; page--)
+        for (int page = start_page; page > start_page-num_pages; page--)
         {
             pte_t *pt = curr_pcb->pt_addr;
-            pte_t pte = pt[page];
+            pte_t pte = pt[page-MAX_PT_LEN];
             if (FreeUserPTE(&pte) == -1)
             {
                 TracePrintf(1, "SetKernelBrk: failed to free pte at page %d\n", page);
@@ -167,7 +189,5 @@ int KernelDelay(int clock_ticks){
 		return -1;
     }
     curr_pcb->delay_ticks += clock_ticks;
-    // do i immediately switch processes here?
-    // TODO call the switch function here
     return 0;
 }

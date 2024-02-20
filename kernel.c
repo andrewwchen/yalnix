@@ -219,7 +219,7 @@ int SetKernelBrk(void *addr)
   {
     int num_pages = DOWN_TO_PAGE(addr-current_kernel_brk) >> PAGESHIFT;
     int start_page = (unsigned int)current_kernel_brk >> PAGESHIFT;
-    for (int page = start_page; page < num_pages; page--)
+    for (int page = start_page; page > start_page-num_pages; page--)
     {
       int frame = kernel_pt[page].pfn;
       if (DeallocateFrame(frame) == -1)

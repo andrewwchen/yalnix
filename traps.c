@@ -22,6 +22,7 @@ TrapKernel(UserContext *uc)
 
   int syscall_number = uc->code;
   int rc;
+  int pid;
 
   TracePrintf(1,"Syscall Code: %x\n", syscall_number);
 
@@ -41,16 +42,25 @@ TrapKernel(UserContext *uc)
     case YALNIX_EXIT:
       TracePrintf(1,"KernelExit()\n");
       int status = uc->regs[0];
+      pid = curr_pcb->pid;
       KernelExit(status);
+      TickChildWaitPCBs(pid, status);
       SwitchPCB(uc, 0);
       break;
     case YALNIX_WAIT:
       TracePrintf(1,"KernelWait()\n");
-      // int KernelWait(int *status_ptr);
+      int* status_ptr = (int *) (uc->regs[0]);
+      rc = KernelWait(status_ptr);
+      if (rc == 0) {
+        SwitchPCB(uc, 2);
+        rc = uc->regs[1];
+        break;
+      }
+      uc->regs[0] = rc;
       break;
     case YALNIX_GETPID:
       TracePrintf(1,"KernelGetPid()\n");
-      int pid = KernelGetPid();
+      pid = KernelGetPid();
       uc->regs[0] = pid;
       break;
     case YALNIX_BRK:

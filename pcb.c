@@ -22,9 +22,9 @@ void PCBAddChild(pcb_t* parent_pcb, int child_pid) {
   parent_pcb->child_pids_count += 1;
 }
 
-// check if a pcb has a child pid
+// check if a pcb has a child with the specified pid
 int PCBHasChild(pcb_t* parent_pcb, int child_pid) {
-  for (int i = 0; i < parent_pcb->child_pids_size; i++) {
+  for (int i = 0; i < parent_pcb->child_pids_count; i++) {
     if (parent_pcb->child_pids[i] == child_pid) {
       return 1;
     }

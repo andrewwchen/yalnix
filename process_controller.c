@@ -77,12 +77,40 @@ void TickDelayedPCBs() {
   }
 }
 
+// check if any waiting parent was waiting for this child
+void TickChildWaitPCBs(int child_pid, int status) {
+  pcb_t *pcb = deQueue(child_wait_queue);
+  while (pcb != NULL) {
+    if (PCBHasChild(pcb, child_pid)) {
+      enQueue(ready_queue, pcb);
+      if (pcb->status_ptr != NULL) {
+        *(pcb->status_ptr)  = status;
+      }
+      pcb->uc.regs[1] = child_pid;
+      // TODO how do you pass the pid and status ptr info back?
+      break;
+    }
+    enQueue(temp_queue, pcb);
+    pcb = deQueue(child_wait_queue);
+  }
+
+  pcb = deQueue(temp_queue);
+  while (pcb != NULL) {
+    enQueue(child_wait_queue, pcb);
+    pcb = deQueue(temp_queue);
+  }
+}
+
 void AddPCB(pcb_t *pcb) {
   if (pcb->delay_ticks > 0) {
     enQueue(delay_wait_queue, pcb);
   } else {
     enQueue(ready_queue, pcb);
   }
+}
+
+void AddChildWaitPCB(pcb_t *pcb) {
+  enQueue(child_wait_queue, pcb);
 }
 
 KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
@@ -185,18 +213,19 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
   return kcp;
 }
 
-
+// requeue == 0 -> Exit         (don't requeue)
+// requeue == 1 -> Clock, Delay (requeue)
+// requeue == 2 -> Wait         (wait queue)
 void SwitchPCB(UserContext *uc, int requeue) {
-  
   // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
   pcb_t *ready_pcb = deQueue(ready_queue);
 
-  if (ready_pcb == NULL && requeue) {
+  if (ready_pcb == NULL && requeue == 1) {
     TracePrintf(1,"SwitchPCB: No ready PCBs and requeuing, continue current process\n");
     return;
   }
 
-  if (ready_pcb == NULL) {
+  if (ready_pcb == NULL && requeue != 1) {
     TracePrintf(1,"SwitchPCB: No ready PCBs and not requeuing, dispatch idle process\n");
     ready_pcb = idle_pcb;
   } else {
@@ -207,8 +236,13 @@ void SwitchPCB(UserContext *uc, int requeue) {
   curr_pcb->uc = *uc;
 
   // requeue, but only if not idle
-  if (requeue && curr_pcb->pid != idle_pcb->pid) {
+  if (requeue == 1 && curr_pcb->pid != idle_pcb->pid) {
     AddPCB(curr_pcb);
+  }
+
+  // add to child wait queue
+  if (requeue == 2) {
+    AddChildWaitPCB(curr_pcb);
   }
 
   // Invoke your KCSwitch() function (Transitions 8 and 9) to change from the old process to the next process.
