@@ -12,3 +12,4 @@ yalnix
 /test/init
 /test/torture
 /test/zero
+/test/exectest
