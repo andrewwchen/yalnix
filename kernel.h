@@ -10,7 +10,6 @@
 #include <pcb.h>
 extern pte_t kernel_pt[MAX_PT_LEN];
 extern pcb_t *curr_pcb;
-pcb_t* CreateRegion1PCB();
-void DoIdle();
+extern pcb_t *idle_pcb;
 
 #endif

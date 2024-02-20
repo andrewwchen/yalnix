@@ -20,16 +20,19 @@ ExitNode_t *exit_statuses;
 int exit_statuses_entries = 0;
 int exit_statuses_size = 4;
 Queue_t *ready_queue;
+Queue_t *child_wait_queue;
+Queue_t *delay_wait_queue;
 Queue_t *temp_queue;
 
 void InitQueues() {
   exit_statuses = malloc(exit_statuses_size * sizeof(ExitNode_t));
   ready_queue = createQueue();
+  child_wait_queue = createQueue();
+  delay_wait_queue = createQueue();
   temp_queue = createQueue();
 }
 
-void SaveExitStatus(int status) {
-  int pid = curr_pcb->pid;
+void SaveExitStatus(int pid, int status) {
   if (exit_statuses_entries == exit_statuses_size) {
     ExitNode_t *exit_statuses_new = malloc(exit_statuses_size * 2 * sizeof(ExitNode_t));
     for (int i = 0; i < exit_statuses_size; i++) {
@@ -53,46 +56,33 @@ int GetExitStatus(int pid) {
   return -1;
 }
 
+// tick the delay value of all pcbs in the delay queue
+// if the delay value of a pcb is 0, add it to the ready queue
 void TickDelayedPCBs() {
-  pcb_t *ready_pcb = deQueue(ready_queue);
-  while (ready_pcb != NULL) {
-    if (ready_pcb->delay_ticks > 0) {
-      ready_pcb->delay_ticks -= 1;
-    }
-    enQueue(temp_queue, ready_pcb);
-    ready_pcb = deQueue(ready_queue);
-  }
-
-  pcb_t* temp_ready_pcb = deQueue(temp_queue);
-  while (temp_ready_pcb != NULL) {
-    enQueue(ready_queue, temp_ready_pcb);
-    temp_ready_pcb = deQueue(temp_queue);
-  }
-}
-
-
-pcb_t *GetReadyPCB() {
-  pcb_t *pcb = deQueue(ready_queue);
-  pcb_t *ready_pcb = NULL;
+  pcb_t *pcb = deQueue(delay_wait_queue);
   while (pcb != NULL) {
-    if (pcb->delay_ticks == 0 && pcb->blocked == 0) {
-      ready_pcb = pcb;
-      break;
+    if (pcb->delay_ticks > 0) {
+      pcb->delay_ticks -= 1;
+      enQueue(temp_queue, pcb);
+    } else {
+      enQueue(ready_queue, pcb);
     }
-    enQueue(temp_queue, pcb);
-    pcb = deQueue(ready_queue);
+    pcb = deQueue(delay_wait_queue);
   }
 
-  pcb_t* temp_ready_pcb = deQueue(temp_queue);
-  while (temp_ready_pcb != NULL) {
-    enQueue(ready_queue, temp_ready_pcb);
-    temp_ready_pcb = deQueue(temp_queue);
+  pcb = deQueue(temp_queue);
+  while (pcb != NULL) {
+    enQueue(delay_wait_queue, pcb);
+    pcb = deQueue(temp_queue);
   }
-  return ready_pcb;
 }
 
 void AddPCB(pcb_t *pcb) {
-  enQueue(ready_queue, pcb);
+  if (pcb->delay_ticks > 0) {
+    enQueue(delay_wait_queue, pcb);
+  } else {
+    enQueue(ready_queue, pcb);
+  }
 }
 
 KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
@@ -117,8 +107,8 @@ KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
   int red_zone_page_2 = (int) red_zone_addr_2 >> PAGESHIFT;
   int red_zone_frame_1 = AllocateFrame();
   int red_zone_frame_2 = AllocateFrame();
-  PopulateKernelPTE(&kernel_pt[red_zone_page_1], PROT_READ | PROT_WRITE, red_zone_frame_1);
-  PopulateKernelPTE(&kernel_pt[red_zone_page_2], PROT_READ | PROT_WRITE, red_zone_frame_2);
+  PopulatePTE(&kernel_pt[red_zone_page_1], PROT_READ | PROT_WRITE, red_zone_frame_1);
+  PopulatePTE(&kernel_pt[red_zone_page_2], PROT_READ | PROT_WRITE, red_zone_frame_2);
 
   // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
@@ -188,8 +178,6 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
   // Set region 1 page table to next pcb
   WriteRegister(REG_PTBR1, (unsigned int) (next_pcb->pt_addr));
 
-  AddPCB(c_pcb);
-
   curr_pcb = next_pcb;
 
   // STEP 3: return saved kernel context for B
@@ -198,27 +186,36 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
 }
 
 
-void TryReadyPCBSwitch(UserContext *uc) {
+void SwitchPCB(UserContext *uc, int requeue) {
   
   // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
-  
-  pcb_t* ready_pcb = GetReadyPCB();
-  if (ready_pcb == NULL) {
-    TracePrintf(1,"No ready PCBs, continuing current process\n");
+  pcb_t *ready_pcb = deQueue(ready_queue);
+
+  if (ready_pcb == NULL && requeue) {
+    TracePrintf(1,"SwitchPCB: No ready PCBs and requeuing, continue current process\n");
     return;
   }
-  TracePrintf(1,"Found a ready PCB\n");
-  TracePrintf(1,"CURR_PCB before: %d\n", curr_pcb->pid);
+
+  if (ready_pcb == NULL) {
+    TracePrintf(1,"SwitchPCB: No ready PCBs and not requeuing, dispatch idle process\n");
+    ready_pcb = idle_pcb;
+  } else {
+    TracePrintf(1,"SwitchPCB: Found a ready PCB\n");
+  }
 
   // On the way into a handler (Transition 5), copy the current UserContext into the PCB of the current process
-  curr_pcb->uc = *uc; 
+  curr_pcb->uc = *uc;
+
+  // requeue, but only if not idle
+  if (requeue && curr_pcb->pid != idle_pcb->pid) {
+    AddPCB(curr_pcb);
+  }
 
   // Invoke your KCSwitch() function (Transitions 8 and 9) to change from the old process to the next process.
   if (KernelContextSwitch(KCSwitch, curr_pcb, ready_pcb) == -1) {
     TracePrintf(1, "TrapClock: failed to switch from curr_pcb to ready_pcb\n");
     return;
   }
-  TracePrintf(1,"CURR_PCB after: %d\n", curr_pcb->pid);
 
     // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);

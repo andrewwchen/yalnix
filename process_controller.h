@@ -8,7 +8,7 @@
 
 #include <pcb.h>
 
-void SaveExitStatus(int status);
+void SaveExitStatus(int pid, int status);
 
 int GetExitStatus(int pid);
 
@@ -26,6 +26,6 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
 
 
 void TickDelayedPCBs();
-void TryReadyPCBSwitch(UserContext *uc);
+void SwitchPCB(UserContext *uc, int requeue);
 
 #endif

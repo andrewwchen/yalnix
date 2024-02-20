@@ -9,12 +9,10 @@
 #include <pte_manager.h>
 
 int KernelFork(){
-    
-    TracePrintf(1, "KernelFork: frames before %d\n", num_allocated_frames);
     // Syscall which uses KCCopy utility to copy the parent pcb
 
     // Create child pcb
-    pcb_t *child_pcb = CreateRegion1PCB();
+    pcb_t *child_pcb = NewPCB();
 
     // make child uc a copy of parent uc
     child_pcb->uc = curr_pcb->uc;
@@ -46,7 +44,7 @@ int KernelFork(){
             void *red_zone_addr = (void *) (DOWN_TO_PAGE(curr_pcb->uc.sp) - (PAGESIZE));
             int red_zone_page = (((int) red_zone_addr) >> PAGESHIFT) - MAX_PT_LEN;
             int red_zone_frame = AllocateFrame();
-            PopulateKernelPTE(&parent_pt[red_zone_page], PROT_READ | PROT_WRITE, red_zone_frame);
+            PopulatePTE(&parent_pt[red_zone_page], PROT_READ | PROT_WRITE, red_zone_frame);
 
             // Flush the TLB
             WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
@@ -67,7 +65,7 @@ int KernelFork(){
             WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
             // make red zone invalid
-            ClearKernelPTE(&parent_pt[red_zone_page]);
+            ClearPTE(&parent_pt[red_zone_page]);
         }
     }
 
@@ -80,9 +78,6 @@ int KernelFork(){
     // Flush the TLB
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
     WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
-
-    TracePrintf(1, "KernelFork: frames after %d\n", num_allocated_frames);
-    
 
     return 0;
 
@@ -98,10 +93,8 @@ void KernelExit(int status){
     //The current process is terminated, the integer status value is saved for possible later collection 
     //by the parent process on a call to Wait. All resources used by the calling process will be freed, 
     //except for the saved status information. This call can never return.
-    // curr_pcb
-    //FreeUserPTE();
-    //ClearKernelPTE();
-    SaveExitStatus(status);
+    SaveExitStatus(curr_pcb->pid, status);
+    ClearPT(curr_pcb->pt_addr);
     free(curr_pcb->pt_addr);
     free(curr_pcb->child_pids);
 }

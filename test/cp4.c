@@ -23,8 +23,8 @@ int main(void)
         //TracePrintf(1,"Now testing second GetPid()\n");
         //pid = GetPid();
         //TracePrintf(0,"GetPid() result: %d\n", pid);
-        Pause();
-        //Exit(0);
+        //Pause();
+        Exit(0);
     }
     return 0;
 }

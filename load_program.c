@@ -172,14 +172,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
    */
   pte_t* pt = proc->pt_addr;
 
-  for (int page = 0; page < MAX_PT_LEN; page++) {
-    pte_t* pte = &pt[page];
-    if (pte->valid == 1) {
-      if (FreeUserPTE(pte) == -1) {
-        TracePrintf(1, "LoadProgram: failed to free PTE at page number %d\n", page);
-      }
-    }
-  }
+  ClearPT(pt);
 
   /*
    * ==>> Then, build up the new region1.  
@@ -193,7 +186,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
    * ==>> (PROT_READ | PROT_WRITE).
    */
 
-  rc = CreateUserPTERegion(pt, text_pg1, text_pg1 + li.t_npg, PROT_READ | PROT_WRITE);
+  rc = PopulatePTERegion(pt, text_pg1, text_pg1 + li.t_npg, PROT_READ | PROT_WRITE);
   if (rc == -1) {
     TracePrintf(1, "LoadProgram: failed create text PTE region\n");
     return ERROR;
@@ -205,7 +198,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
    * ==>> These pages should be marked valid, with a protection of
    * ==>> (PROT_READ | PROT_WRITE).
    */
-  rc = CreateUserPTERegion(pt, data_pg1, data_pg1 + data_npg, PROT_READ | PROT_WRITE);
+  rc = PopulatePTERegion(pt, data_pg1, data_pg1 + data_npg, PROT_READ | PROT_WRITE);
   if (rc == -1) {
     TracePrintf(1, "LoadProgram: failed create data PTE region\n");
     return ERROR;
@@ -217,7 +210,7 @@ LoadProgram(char *name, char *args[], pcb_t *proc)
    * ==>> These pages should be marked valid, with a
    * ==>> protection of (PROT_READ | PROT_WRITE).
    */
-  rc = CreateUserPTERegion(pt, MAX_PT_LEN - stack_npg, MAX_PT_LEN, PROT_READ | PROT_WRITE);
+  rc = PopulatePTERegion(pt, MAX_PT_LEN - stack_npg, MAX_PT_LEN, PROT_READ | PROT_WRITE);
   if (rc == -1) {
     TracePrintf(1, "LoadProgram: failed create stack PTE region\n");
     return ERROR;
