@@ -5,23 +5,85 @@
 
 #include <kernel.h>
 #include <process_controller.h>
+#include <frame_manager.h>
 #include <pte_manager.h>
 
 int KernelFork(){
+    
+    TracePrintf(1, "KernelFork: frames before %d\n", num_allocated_frames);
     // Syscall which uses KCCopy utility to copy the parent pcb
 
     // Create child pcb
     pcb_t *child_pcb = CreateRegion1PCB();
+
+    // make child uc a copy of parent uc
     child_pcb->uc = curr_pcb->uc;
 
+    // set child and parent uc return value differently
     curr_pcb->uc.regs[0] = child_pcb->pid;
     child_pcb->uc.regs[0] = 0;
+
+    // set child's parent as the parent
+    child_pcb->parent_pid = curr_pcb->pid;
+    
+    // set child's brk as the parent's
+    child_pcb->brk = curr_pcb->brk;
+    child_pcb->orig_brk = curr_pcb->orig_brk;
+
+    // copy parent pt into child
+    pte_t *parent_pt = curr_pcb->pt_addr;
+    pte_t *child_pt = child_pcb->pt_addr;
+    for (int page = 0; page < MAX_PT_LEN; page++) {
+        pte_t parent_pte = parent_pt[page];
+        if (parent_pte.valid == 1) {
+            pte_t *child_pte = CreateUserPTE(parent_pte.prot);
+            if (child_pte == NULL) {
+                TracePrintf(1, "KernelFork: failed create pte for child pcb\n");
+            }
+            child_pt[page] = *child_pte;
+
+            // make red zone valid
+            void *red_zone_addr = (void *) (DOWN_TO_PAGE(curr_pcb->uc.sp) - (PAGESIZE));
+            int red_zone_page = (((int) red_zone_addr) >> PAGESHIFT) - MAX_PT_LEN;
+            int red_zone_frame = AllocateFrame();
+            PopulateKernelPTE(&parent_pt[red_zone_page], PROT_READ | PROT_WRITE, red_zone_frame);
+
+            // Flush the TLB
+            WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+            // copy parent contents into red zone
+            void *parent_addr = (void *) ((page + MAX_PT_LEN) << PAGESHIFT);
+            memcpy(red_zone_addr, parent_addr, PAGESIZE);
+
+            // Flush the TLB
+            WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+            // point child page at red zone frame
+            int child_frame = child_pte->pfn;
+            child_pt[page].pfn = red_zone_frame;
+            parent_pt[red_zone_page].pfn = child_frame;
+
+            // Flush the TLB
+            WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+            // make red zone invalid
+            ClearKernelPTE(&parent_pt[red_zone_page]);
+        }
+    }
 
     if (KernelContextSwitch(KCCopy, child_pcb, NULL) == -1) {
         TracePrintf(1, "KernelFork: failed to copy curr_pcb into child_pcb\n");
         // set the return value in parent to be -1
         return -1;
     }
+
+    // Flush the TLB
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+    WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+    TracePrintf(1, "KernelFork: frames after %d\n", num_allocated_frames);
+    
+
     return 0;
 
 }
@@ -39,7 +101,9 @@ void KernelExit(int status){
     // curr_pcb
     //FreeUserPTE();
     //ClearKernelPTE();
-
+    SaveExitStatus(status);
+    free(curr_pcb->pt_addr);
+    free(curr_pcb->child_pids);
 }
 
 
@@ -111,5 +175,6 @@ int KernelDelay(int clock_ticks){
     }
     curr_pcb->delay_ticks += clock_ticks;
     // do i immediately switch processes here?
+    // TODO call the switch function here
     return 0;
 }

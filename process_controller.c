@@ -9,25 +9,47 @@
 #include <frame_manager.h>
 #include <pte_manager.h>
 
-int *exit_statuses;
+struct ExitNode {
+    int pid;
+    int status;
+};
+
+typedef struct ExitNode ExitNode_t;
+
+ExitNode_t *exit_statuses;
 int exit_statuses_entries = 0;
 int exit_statuses_size = 4;
 Queue_t *ready_queue;
 Queue_t *temp_queue;
 
 void InitQueues() {
-  exit_statuses = malloc(exit_statuses_size * sizeof(int));
+  exit_statuses = malloc(exit_statuses_size * sizeof(ExitNode_t));
   ready_queue = createQueue();
   temp_queue = createQueue();
 }
 
 void SaveExitStatus(int status) {
   int pid = curr_pcb->pid;
-  
+  if (exit_statuses_entries == exit_statuses_size) {
+    ExitNode_t *exit_statuses_new = malloc(exit_statuses_size * 2 * sizeof(ExitNode_t));
+    for (int i = 0; i < exit_statuses_size; i++) {
+      exit_statuses_new[i] = exit_statuses[i];
+    }
+    exit_statuses_size *= 2;
+    free(exit_statuses);
+    exit_statuses = exit_statuses_new;
+  }
+  exit_statuses[exit_statuses_entries].pid = pid;
+  exit_statuses[exit_statuses_entries].status = status;
+  exit_statuses_entries += 1;
 }
 
-int CheckForChildExitStatus(int child_pid) {
-
+int GetExitStatus(int pid) {
+  for (int i = 0; i < exit_statuses_entries; i++) {
+    if (exit_statuses[i].pid == pid) {
+      return exit_statuses[i].status; 
+    };
+  }
   return -1;
 }
 
@@ -166,7 +188,6 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
   // Set region 1 page table to next pcb
   WriteRegister(REG_PTBR1, (unsigned int) (next_pcb->pt_addr));
 
-  // put the old pcb back in the queue
   AddPCB(c_pcb);
 
   curr_pcb = next_pcb;
@@ -187,6 +208,7 @@ void TryReadyPCBSwitch(UserContext *uc) {
     return;
   }
   TracePrintf(1,"Found a ready PCB\n");
+  TracePrintf(1,"CURR_PCB before: %d\n", curr_pcb->pid);
 
   // On the way into a handler (Transition 5), copy the current UserContext into the PCB of the current process
   curr_pcb->uc = *uc; 
@@ -196,6 +218,15 @@ void TryReadyPCBSwitch(UserContext *uc) {
     TracePrintf(1, "TrapClock: failed to switch from curr_pcb to ready_pcb\n");
     return;
   }
+  TracePrintf(1,"CURR_PCB after: %d\n", curr_pcb->pid);
+
+    // Flush the TLB
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
+  WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
+
+  // Set region 1 page table to next pcb
+  WriteRegister(REG_PTBR1, (unsigned int) (curr_pcb->pt_addr));
+  
 
   // copy the UserContext from the current PCB back to the uctxt address passed to the handler (so that we go back to the right place)
   *uc = curr_pcb->uc;

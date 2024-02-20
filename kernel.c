@@ -72,7 +72,7 @@ pcb_t* CreateRegion1PCB()
   pcb->delay_ticks = 0;
   // pcb->child_pids; empty to start
   pcb->parent_pid = -1;
-  pcb->waited_child_pid = -1;
+  pcb->waiting = 0;
 
   return pcb;
 }
@@ -192,7 +192,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   idle_pcb->orig_brk = 0;
 
   // allocate frame for idle pcb user stack
-  pte_t *idle_pt = (idle_pcb->pt_addr);
+  pte_t *idle_pt = idle_pcb->pt_addr;
   pte_t *user_stack_pte = CreateUserPTE(PROT_READ | PROT_WRITE);
   if (user_stack_pte == NULL) {
     TracePrintf(1, "KernelStart: failed to create user_stack_pte \n");
@@ -212,6 +212,35 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 
   if (curr_pcb == idle_pcb) {
     *uctxt = idle_pcb->uc;
+    /*
+    // Create idle pcb
+    pcb_t *idle2_pcb = CreateRegion1PCB();
+
+    // Modify idle pcb user context
+    idle2_pcb->uc = *uctxt;
+    idle2_pcb->uc.pc = DoIdle;
+    idle2_pcb->uc.sp = (void*) (VMEM_1_LIMIT - sp_offset);
+    idle2_pcb->brk = 0;
+    idle2_pcb->orig_brk = 0;
+
+    // allocate frame for idle pcb user stack
+    pte_t *idle2_pt = (idle2_pcb->pt_addr);
+    pte_t *user2_stack_pte = CreateUserPTE(PROT_READ | PROT_WRITE);
+    if (user2_stack_pte == NULL) {
+      TracePrintf(1, "KernelStart: failed to create user_stack_pte \n");
+      return;
+    }
+
+    idle2_pt[MAX_PT_LEN-1] = *user2_stack_pte;
+
+    if (KernelContextSwitch(KCCopy, idle2_pcb, NULL) == -1) {
+      TracePrintf(1, "KernelStart: failed to copy init_pcb into idle_pcb\n");
+      return;
+    }
+    if (curr_pcb == idle2_pcb) {
+      *uctxt = idle2_pcb->uc;
+    }*/
+    
   }
 
   TracePrintf(1, "Leaving KernelStart\n");
@@ -220,6 +249,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
 // SetKernelBrk as defined in hardware.h
 int SetKernelBrk(void *addr)
 {
+  TracePrintf(1, "SetKernelBrk: entering\n");
   // check if addr is above red zone
   int red_zone = KERNEL_STACK_BASE - (2 * PAGESIZE);
   if ( addr > (void *) red_zone)
@@ -243,9 +273,12 @@ int SetKernelBrk(void *addr)
   // handle case where addr is above the current kernel brk
   if (addr >= current_kernel_brk)
   {
+    TracePrintf(1, "SetKernelBrk: addr greater than\n");
     int num_pages = UP_TO_PAGE(addr-current_kernel_brk) >> PAGESHIFT;
     int start_page = UP_TO_PAGE(current_kernel_brk) >> PAGESHIFT;
-    for (int page = start_page; page < num_pages; page++)
+    TracePrintf(1, "SetKernelBrk: num_pages=%d\n", num_pages);
+    TracePrintf(1, "SetKernelBrk: start_page=%d\n", start_page);
+    for (int page = start_page; page < start_page+num_pages; page++)
     {
       int frame = AllocateFrame();
       if (frame == -1)

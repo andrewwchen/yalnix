@@ -8,6 +8,10 @@
 
 #include <pcb.h>
 
+void SaveExitStatus(int status);
+
+int GetExitStatus(int pid);
+
 void InitQueues();
 
 void UpdateBlockedQueue();

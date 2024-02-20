@@ -29,7 +29,12 @@ TrapKernel(UserContext *uc)
     case YALNIX_FORK:
       TracePrintf(1,"KernelFork()\n");
       curr_pcb->uc = *uc;
+      UserContext orig_uc = *uc;
+      int orig_pcb_pid = curr_pcb->pid;
       rc = KernelFork();
+      if (curr_pcb->pid != orig_pcb_pid) {
+        TracePrintf(1,"I AM CHILD with PID %d\n", curr_pcb->pid);
+      }
       *uc = curr_pcb->uc;
       break;
     case YALNIX_EXEC:

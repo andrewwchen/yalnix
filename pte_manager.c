@@ -63,6 +63,7 @@ int FreeUserPTE(pte_t* pte) {
     TracePrintf(1, "FreeUserPTE: failed to deallocate pfn\n");
     return -1;
   }
+  pte->valid = 0;
   free(pte);
   return 0;
 }
