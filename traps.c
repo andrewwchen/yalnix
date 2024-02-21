@@ -68,7 +68,10 @@ TrapKernel(UserContext *uc)
       int* status_ptr = (int *) (uc->regs[0]);
       rc = KernelWait(status_ptr);
       if (rc == 0) {
-        SwitchPCB(uc, 2);
+        SwitchPCB(uc, 2);   
+        if (status_ptr != NULL) {
+          *status_ptr = uc->regs[1];
+        }
       } else {
         uc->regs[0] = rc;
       }

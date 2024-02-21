@@ -120,16 +120,19 @@ void KernelExit(UserContext *uc, int status){
     // the integer status value is saved for possible later collection by parent
     SaveExitStatus(curr_pcb->pid, status);
 
+    // check if any parents were waiting for this child
+    TickChildWaitPCBs(pid, status);
+
     // all resources used by the calling process will be freed,
     ClearPT(curr_pcb->pt_addr);
+    // TODO: uncommenting this line causes new child processes to repeat the pid of an old exited process
+    // TODO: commenting this line causes warnings
     free(curr_pcb->pt_addr);
     free(curr_pcb->child_pids);
     ClearPTE(&curr_pcb->kernel_stack_pages[0]);
     ClearPTE(&curr_pcb->kernel_stack_pages[1]);
     free(curr_pcb);
     
-    // check if any parents were waiting for this child
-    TickChildWaitPCBs(pid, status);
 
     // switch pcbs
     SwitchPCB(uc, 0);

@@ -83,10 +83,7 @@ void TickChildWaitPCBs(int child_pid, int status) {
   while (pcb != NULL) {
     if (PCBHasChild(pcb, child_pid)) {
       enQueue(ready_queue, pcb);
-      int *status_ptr = (int *) (pcb->uc.regs[0]);
-      if (status_ptr != NULL) {
-        *status_ptr  = status;
-      }
+      pcb->uc.regs[1] = status;
       pcb->uc.regs[0] = child_pid;
       break;
     }
