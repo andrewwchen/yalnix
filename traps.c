@@ -69,10 +69,9 @@ TrapKernel(UserContext *uc)
       rc = KernelWait(status_ptr);
       if (rc == 0) {
         SwitchPCB(uc, 2);
-        rc = uc->regs[1];
-        break;
+      } else {
+        uc->regs[0] = rc;
       }
-      uc->regs[0] = rc;
       break;
     case YALNIX_GETPID:
       TracePrintf(1,"KernelGetPid()\n");
