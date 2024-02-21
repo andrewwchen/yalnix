@@ -8,13 +8,13 @@ Team: Juan F. Suarez Burgos (f004s2y), Andrew W. Chen (f0040gy)
 
 The default loaded program is test/init rather than init
 
-test/cp3.c contains a test program for testing cp3 syscall implementations
+test/cp4.c contains a test program for testing cp4
 
-To perform cp3 testing, run:
+To perform cp4 testing, run:
 
 ```
 make
-./yalnix test/cp3
+./yalnix test/cp4
 
 ```
 
