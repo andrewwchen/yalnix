@@ -125,14 +125,12 @@ void KernelExit(UserContext *uc, int status){
 
     // all resources used by the calling process will be freed,
     ClearPT(curr_pcb->pt_addr);
-    // TODO: uncommenting this line causes new child processes to repeat the pid of an old exited process
-    // TODO: commenting this line causes warnings
+    helper_retire_pid(curr_pcb->pid);
     free(curr_pcb->pt_addr);
     free(curr_pcb->child_pids);
     ClearPTE(&curr_pcb->kernel_stack_pages[0]);
     ClearPTE(&curr_pcb->kernel_stack_pages[1]);
     free(curr_pcb);
-    
 
     // switch pcbs
     SwitchPCB(uc, 0);
