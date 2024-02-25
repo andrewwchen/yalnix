@@ -2,7 +2,7 @@
 
 Winter 2024 CS58 Yalnix project
 
-Team: Juan F. Suarez Burgos (f004s2y), Andrew W. Chen (f0040gy)
+Team: Tianwen Chen (f004h5q), Juan F. Suarez Burgos (f004s2y), Andrew W. Chen (f0040gy)
 
 ## FYI
 
@@ -10,11 +10,11 @@ The default loaded program is test/init rather than init
 
 test/cp4.c contains a test program for testing cp4
 
-To perform cp4 testing, run:
+To perform cp5 testing, run:
 
 ```
 make
-./yalnix test/cp4
+./yalnix -x test/cp5
 
 ```
 
