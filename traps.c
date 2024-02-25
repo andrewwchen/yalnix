@@ -112,7 +112,7 @@ TrapKernel(UserContext *uc)
         TracePrintf(1,"KernelTtyRead: Invalid parameters");
         uc->regs[0] = -1;
       } else {
-        KernelTtyRead(tty_id, buf, len, uc);
+        uc->regs[0] = KernelTtyRead(tty_id, buf, len, uc);
       }
       break;
 
@@ -127,7 +127,7 @@ TrapKernel(UserContext *uc)
         TracePrintf(1,"KernelTtyWrite: Invalid parameters");
         uc->regs[0] = -1;
       } else {
-        KernelTtyWrite(tty_id, buf, len, uc);
+        uc->regs[0] = KernelTtyWrite(tty_id, buf, len, uc);
       }
       break;
   }
@@ -138,6 +138,7 @@ TrapClock(UserContext *uc)
 {
   TracePrintf(1,"Clock Trap\n");
   TickDelayedPCBs();
+  SwitchPCB(uc, 1);
 }
 
 void

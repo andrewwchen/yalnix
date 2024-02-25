@@ -17,11 +17,15 @@ KernelTtyRead(int tty_id, void *buf, int len, UserContext *uc)
     return 0;
   }
 
+  if (len > TERMINAL_MAX_LINE) {
+    len = TERMINAL_MAX_LINE;
+  }
+
   // create buffer in kernel space
   void* string = (void*) malloc(sizeof(char)*len);
 
   // wait until there is a line to be read
-  while (terminal_lines[tty_id] > 1) {
+  while (terminal_lines[tty_id] < 1) {
     // block and switch
     BlockTtyReader(tty_id, curr_pcb);
     SwitchPCB(uc, 3);
@@ -81,9 +85,6 @@ KernelTtyWrite(int tty_id, void *buf, int len, UserContext *uc)
     // prepare next iteration
     buf += this_len;
     free(string);
-
-    // now that one line has been written to the terminal, another reader can read a line
-    UnblockTtyReader(tty_id);
   }
 
   // unset this pcb as the current writer for the terminal

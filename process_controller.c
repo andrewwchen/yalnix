@@ -214,7 +214,9 @@ KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
   
-  AddPCB(pcb);
+  if (pcb->pid != idle_pcb->pid) {
+    AddPCB(pcb);
+  }
 
   return kc_in;
 }
@@ -307,7 +309,7 @@ void SwitchPCB(UserContext *uc, int requeue) {
     return;
   }
 
-    // Flush the TLB
+  // Flush the TLB
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_0);
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
