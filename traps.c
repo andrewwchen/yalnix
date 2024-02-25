@@ -7,6 +7,7 @@
 #include <kernel.h>
 #include <basic_syscalls.h>
 #include <process_controller.h>
+#include <io_syscalls.h>
 
 void
 TrapUnknown(UserContext *uc)
@@ -23,6 +24,9 @@ TrapKernel(UserContext *uc)
   int syscall_number = uc->code;
   int rc;
   int pid;
+  int len;
+  int tty_id;
+  void *buf;
 
   TracePrintf(1,"Syscall Code: %x\n", syscall_number);
 
@@ -96,6 +100,36 @@ TrapKernel(UserContext *uc)
         SwitchPCB(uc, 1);
       }
       break;
+      
+    case YALNIX_TTY_READ:
+      tty_id = uc->regs[0];
+      buf = (void *) uc->regs[1];
+      len = uc->regs[2];
+
+      TracePrintf(1,"KernelTtyRead(tty_id %d, buf %x, len %d)\n", tty_id, buf, len);
+
+      if (tty_id < 0 || tty_id >= NUM_TERMINALS || len < 0) {
+        TracePrintf(1,"KernelTtyRead: Invalid parameters");
+        uc->regs[0] = -1;
+      } else {
+        KernelTtyRead(tty_id, buf, len, uc);
+      }
+      break;
+
+    case YALNIX_TTY_WRITE:
+      tty_id = uc->regs[0];
+      buf = (void *) uc->regs[1];
+      len = uc->regs[2];
+
+      TracePrintf(1,"KernelTtyWrite(tty_id %d, buf %x, len %d)\n", tty_id, buf, len);
+
+      if (tty_id < 0 || tty_id >= NUM_TERMINALS || len < 0) {
+        TracePrintf(1,"KernelTtyWrite: Invalid parameters");
+        uc->regs[0] = -1;
+      } else {
+        KernelTtyWrite(tty_id, buf, len, uc);
+      }
+      break;
   }
 }
 
@@ -104,7 +138,6 @@ TrapClock(UserContext *uc)
 {
   TracePrintf(1,"Clock Trap\n");
   TickDelayedPCBs();
-  SwitchPCB(uc, 1);
 }
 
 void
@@ -150,24 +183,25 @@ void TrapMath(UserContext *uc)
   KernelExit(uc, -1);
 }
 
+// This trap is specific to an optional feature and will not be implemented
 void TrapDisk(UserContext *uc)
 {
   TracePrintf(1,"Disk Trap\n");
-  // This trap is specific to an optional feature and will not be implemented
 }
 
+// This trap handler responds to TRAP_TTY_TRANSMIT
 void TrapTTYTransmit(UserContext *uc)
 {
-  TracePrintf(1,"TTYTransmit Trap\n");
-  // This trap handler responds to TRAP_TTY_TRANSMIT
-  // terminal number = uc.code
-  // indicates that user output is ready
+  int tty_id = uc->code;
+  TracePrintf(1,"TTYTransmit Trap: write on tty_id %d is done\n", tty_id);
+  UnblockTtyWriter(tty_id);
 }
 
+// This trap handler responds to TRAP_TTY_RECEIVE
 void TrapTTYReceive(UserContext *uc)
 {
-  TracePrintf(1,"TTYReceive Trap\n");
-  // This trap handler responds to TRAP_TTY_RECEIVE
-  // terminal number = uc.code
-  // indicates that user input is ready
+  int tty_id = uc->code;
+  TracePrintf(1,"TTYReceive Trap: a new line on tty_id %d is ready\n", tty_id);
+  terminal_lines[tty_id] += 1;
+  UnblockTtyReader(tty_id);
 }

@@ -6,10 +6,13 @@
 #ifndef _io_syscalls_h_include
 #define _io_syscalls_h_include
 
-int
-KernelTtyRead(int tty_id, void *buf, int len);
+// number of lines available to read on each terminal
+extern int terminal_lines[NUM_TERMINALS];
 
 int
-KernelTtyWrite(int tty_id, void *buf, int len);
+KernelTtyRead(int tty_id, void *buf, int len, UserContext *uc);
+
+int
+KernelTtyWrite(int tty_id, void *buf, int len, UserContext *uc);
 
 #endif

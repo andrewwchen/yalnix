@@ -11,7 +11,7 @@
 K_SRC_DIR = .
 
 # What are the kernel c and include files?
-K_SRCS = ./kernel.c ./pcb.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c ./queue.c ./process_controller.c ./basic_syscalls.c ./io_syscalls.c ./ipc_syscalls.c ./synchronize_syscalls.c
+K_SRCS = ./kernel.c ./pcb.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c ./queue.c ./deque.c ./process_controller.c ./basic_syscalls.c ./io_syscalls.c ./ipc_syscalls.c ./synchronize_syscalls.c
 K_INCS = 
 
 # Where's your user source?

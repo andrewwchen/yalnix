@@ -12,6 +12,7 @@
 #include <process_controller.h>
 #include <load_program.h>
 #include <kernel.h>
+#include <io_syscalls.h>
 
 // indicates whether virtual memory has been enabled
 // determines the behavior of SetKernelBrk()

@@ -22,6 +22,8 @@ int exit_statuses_size = 4;
 Queue_t *ready_queue;
 Queue_t *child_wait_queue;
 Queue_t *delay_wait_queue;
+Queue_t *tty_read_queues[NUM_TERMINALS];
+pcb_t *tty_writers[NUM_TERMINALS];
 Queue_t *temp_queue;
 
 void InitQueues() {
@@ -29,6 +31,10 @@ void InitQueues() {
   ready_queue = createQueue();
   child_wait_queue = createQueue();
   delay_wait_queue = createQueue();
+  for (int i = 0; i < NUM_TERMINALS; i++) {
+    tty_read_queues[i] = createQueue();
+  }
+  bzero(tty_writers, sizeof(tty_writers));
   temp_queue = createQueue();
 }
 
@@ -98,6 +104,14 @@ void TickChildWaitPCBs(int child_pid, int status) {
   }
 }
 
+// move one pcb from the tty read queue to the ready queue
+void UnblockTtyReader(int tty_id) {
+  pcb_t *pcb = deQueue(tty_read_queues[tty_id]);
+  if (pcb != NULL) {
+    enQueue(ready_queue, pcb);
+  }
+}
+
 void AddPCB(pcb_t *pcb) {
   if (pcb->delay_ticks > 0) {
     enQueue(delay_wait_queue, pcb);
@@ -108,6 +122,39 @@ void AddPCB(pcb_t *pcb) {
 
 void AddChildWaitPCB(pcb_t *pcb) {
   enQueue(child_wait_queue, pcb);
+}
+
+void BlockTtyReader(int tty_id, pcb_t *pcb) {
+  enQueue(tty_read_queues[tty_id], pcb);
+}
+
+// mark the specified pcb as the current writer for the corresponding terminal
+int SetTtyWriter(int tty_id, pcb_t *pcb) {
+  if (tty_writers[tty_id] != NULL) {
+    return -1;
+  }
+  tty_writers[tty_id] = pcb;
+  return 0;
+}
+
+// remove the current writer for the corresponding terminal
+int UnsetTtyWriter(int tty_id) {
+  pcb_t *pcb = tty_writers[tty_id];
+  if (pcb != NULL) {
+    tty_writers[tty_id] = NULL;
+    return 0;
+  }
+  return -1;
+}
+
+// add a blocked Tty writer pcb to the ready queue
+int UnblockTtyWriter(int tty_id) {
+  pcb_t *pcb = tty_writers[tty_id];
+  if (pcb != NULL) {
+    enQueue(ready_queue, pcb);
+    return 0;
+  }
+  return -1;
 }
 
 KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used){
@@ -213,6 +260,8 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
 // requeue == 0 -> Exit         (don't requeue)
 // requeue == 1 -> Clock, Delay (requeue)
 // requeue == 2 -> Wait         (wait queue)
+// requeue == 3 -> TtyRead      (tty_read queue)
+// requeue == 4 -> TtyWrite     (tty_write queue)
 void SwitchPCB(UserContext *uc, int requeue) {
   // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
   pcb_t *ready_pcb = deQueue(ready_queue);
@@ -240,6 +289,16 @@ void SwitchPCB(UserContext *uc, int requeue) {
   // add to child wait queue
   if (requeue == 2) {
     AddChildWaitPCB(curr_pcb);
+  }
+
+  // add to tty read queue
+  else if (requeue == 3) {
+    // do nothing here
+  }
+
+  // add to tty write queue
+  else if (requeue == 4) {
+    // do nothing here
   }
 
   // Invoke your KCSwitch() function (Transitions 8 and 9) to change from the old process to the next process.
