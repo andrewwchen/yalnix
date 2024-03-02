@@ -13,6 +13,7 @@
 #include <load_program.h>
 #include <kernel.h>
 #include <io_syscalls.h>
+#include <synchronize_syscalls.h>
 
 // indicates whether virtual memory has been enabled
 // determines the behavior of SetKernelBrk()
@@ -139,6 +140,7 @@ void KernelStart(char *cmd_args[], unsigned int pmem_size, UserContext *uctxt)
   WriteRegister(REG_TLB_FLUSH, TLB_FLUSH_1);
 
   InitQueues();
+  InitSyncObjects();
   
   // Create idle pcb
   idle_pcb = NewPCB();

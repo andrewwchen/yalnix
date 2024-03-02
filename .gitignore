@@ -13,3 +13,4 @@ yalnix
 /test/torture
 /test/zero
 /test/exectest
+/test/locktest

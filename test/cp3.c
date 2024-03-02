@@ -13,7 +13,7 @@ int main(void)
         int pid = GetPid();
         TracePrintf(0,"GetPid() result: %d\n", pid);
         TracePrintf(0,"Now testing Delay(%d)\n", delay);
-        //Delay(delay);
+        Delay(delay);
         void *addr = (void*)(loop_num * PAGESIZE);
         TracePrintf(0,"Now testing Brk(%x)\n", addr);
         Brk(addr);

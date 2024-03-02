@@ -52,6 +52,19 @@ void enQueue(struct Queue* q, pcb_t *pcb){
 
 }
 
+
+//add element to the front of queue
+void enQueueFront(struct Queue* q, pcb_t *pcb) {
+    struct QNode* temp = newNode(pcb);
+    if (q->rear == NULL) {
+        q->front = q->rear = temp;
+        return;
+    } else {
+        temp->next = q->front;
+        q->front = temp;
+    }
+}
+
 pcb_t *deQueue(struct Queue* q)
 {
     // If queue is empty, return -1.
