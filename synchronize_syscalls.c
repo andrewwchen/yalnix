@@ -13,8 +13,6 @@ struct SyncNode {
   int object_type; // indicates what kind of object this is: 0 for lock, 1 for cvar, 2 for pipe, 3 for reclaimed
   int holder_id;   // LOCK: the id of the process currently holding the lock or cvar: is -1 when no one is holding it
   void *queue;     // LOCK OR CVAR: pointer to a queue of pcbs waiting for this lock or cvar
-  //int holder_id;   // the id of the process currently holding the lock or cvar: is -1 when no one is holding it
-  //int holder_id;   // the id of the process currently holding the lock or cvar: is -1 when no one is holding it
 };
 
 typedef struct SyncNode SyncNode_t;
