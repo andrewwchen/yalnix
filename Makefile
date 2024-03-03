@@ -18,7 +18,7 @@ K_INCS =
 U_SRC_DIR = ./test
 
 # What are the user c and include files?
-U_SRCS = ./init.c ./cp3.c ./cp4.c ./exectest.c ./cp5.c ./zero.c ./forktest.c ./torture.c ./locktest.c ./cvartest.c
+U_SRCS = ./init.c ./cp3.c ./cp4.c ./exectest.c ./cp5.c ./zero.c ./forktest.c ./torture.c ./locktest.c ./cvartest.c ./pipetest.c
 U_INCS = 
 
 
