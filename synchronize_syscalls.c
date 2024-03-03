@@ -312,7 +312,7 @@ KernelPipeInit(int *pipe_idp)
 }
 
 int
-KernelPipeRead(int pipe_id, void *buf, int len)
+KernelPipeRead(int pipe_id, void *buf, int len, UserContext *uc)
 {
   // error checking
   if (pipe_id < 0) {
@@ -329,18 +329,20 @@ KernelPipeRead(int pipe_id, void *buf, int len)
     return ERROR;
   }
 
-  if (pipe->len == 0) {
-  	// BLOCK HERE
-	// Should basically enqueue the process in the pipe's own queue
-	// and Switch to another process
+  // if the pipe does not contain any bytes to read
+  while (0 == pipe->len) {
+    // block the current process and add it to the pipe wait queue
+    enQueue(pipe->queue, curr_pcb);
+    // switch off the current process until this process becomes unblocked
+    SwitchPCB(uc, 0, NULL);
   }
 
   if (pipe->len <= len) {
   	memcpy(buf, pipe->buf, sizeof(char) * pipe->len);
-	memset(pipe->buf, 0, PIPE_BUFFER_LEN);
-	int length_copied = pipe->len;
-	pipe->len = 0;
-	return length_copied;	
+    memset(pipe->buf, 0, PIPE_BUFFER_LEN);
+    int length_copied = pipe->len;
+    pipe->len = 0;
+    return length_copied;	
   }
 
   memcpy(buf, pipe->buf, sizeof(char) * len);
@@ -381,7 +383,13 @@ KernelPipeWrite(int pipe_id, void *buf, int len)
 
   memcpy(pipe->buf + pipe->len, buf, sizeof(char) * len);
   pipe->len += len;
-  // UNBLOCK BLOCKED PROCESS HERE
+  
+  // unblock a pipe waiter and switch to it
+  pcb_t* pipe_waiter = deQueue(pipe->queue);
+  if (pipe_waiter != NULL) {
+    AddPCBFront(pipe_waiter);
+  }
+
   return len;
 }
 

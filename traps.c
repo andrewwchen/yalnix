@@ -29,6 +29,7 @@ TrapKernel(UserContext *uc)
   int tty_id;
   int lock_id;
   int cvar_id;
+  int pipe_id;
   void *buf;
 
   TracePrintf(1,"Syscall Code: %x\n", syscall_number);
@@ -174,6 +175,28 @@ TrapKernel(UserContext *uc)
       cvar_id = uc->regs[0];
       TracePrintf(1,"KernelCvarBroadcast(cvar_id %d)\n", cvar_id);
       rc = KernelCvarBroadcast(cvar_id);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_PIPE_INIT:
+      int *pipe_ipd = (int*)uc->regs[0];
+      TracePrintf(1,"KernelPipeInit(pipe_ipd %x)\n", pipe_ipd);
+      rc = KernelPipeInit(pipe_ipd);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_PIPE_READ:
+      pipe_id = uc->regs[0];
+      buf = (void *) uc->regs[1];
+      len = uc->regs[2];
+      TracePrintf(1,"KernelPipeRead(pipe_id %d, buf %x, len %d)\n", pipe_id, buf, len, uc);
+      rc = KernelPipeRead(pipe_id, buf, len, uc);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_PIPE_WRITE:
+      pipe_id = uc->regs[0];
+      buf = (void *) uc->regs[1];
+      len = uc->regs[2];
+      TracePrintf(1,"KernelPipeWrite(pipe_id %d, buf %x, len %d)\n", pipe_id, buf, len, uc);
+      rc = KernelPipeWrite(pipe_id, buf, len);
       uc->regs[0] = rc;
       break;
   }
