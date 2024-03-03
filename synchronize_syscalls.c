@@ -19,7 +19,9 @@ enum ObjectType {
 struct SyncNode {
   enum ObjectType object_type; // indicates what kind of object this is
   int holder_id;            // LOCK: the id of the process currently holding the lock or cvar: is -1 when no one is holding it
-  void *queue;              // LOCK OR CVAR: pointer to a queue of pcbs waiting for this lock or cvar
+  void *queue;              // LOCK OR CVAR OR PIPE: pointer to a queue of pcbs waiting for this lock or cvar
+  int len;                  // PIPE
+  void *buf;                // PIPE
 };
 
 typedef struct SyncNode SyncNode_t;
@@ -62,8 +64,12 @@ int CreateSyncObject(enum ObjectType object_type) {
 
   } else if (object_type == PIPE) { // pipe
     sync_objects[sync_objects_entries].object_type = object_type;
+    sync_objects[sync_objects_entries].queue = createQueue();
+    sync_objects[sync_objects_entries].len = 0;
+    sync_objects[sync_objects_entries].buf = (void *) malloc(PIPE_BUFFER_LEN*sizeof(char));
     int pipe_id = sync_objects_entries;
     sync_objects_entries += 1;
+    
     return pipe_id;
   }
   TracePrintf(1, "CreateSyncObject: invalid object_type\n");
@@ -293,21 +299,14 @@ int KernelReclaim(int id){
 int
 KernelPipeInit(int *pipe_idp)
 {
-	*pipe_idp = get_new_pipe_id()
-
-	pipe* new_pipe = get_new_pipe(*pipe_idp);	
-	if (new_pipe == NULL) {
-		TracePrintf(1, "KernelPipeInit: pipe not created\n");
-		return ERROR;
-	}
-
-	int rc = enqueue_pipe(new_pipe);
-	if (rc == -1) {
-		TracePrintf(1, "KernelPipeInit: error enqueueing pipe\n");
-		return ERROR;
-	}
-
-	return 0;
+  
+  int pipe_id = CreateSyncObject(PIPE);
+  if (pipe_id == -1) {
+    TracePrintf(1, "KernelCvarInit: failed to create sync object\n");
+    return -1;
+  }
+  *pipe_idp = pipe_id;
+  return 0;
 }
 
 int
@@ -340,19 +339,6 @@ KernelPipeWrite(int pipe_id, void *buf, int len)
 	if (len + pipe_to_write->len > PIPE_BUFFER_LEN) {
 		TracePrintf(1, "KernelPipeWrite: pipe is full\n");
 		return ERROR;
-}
-
-// Create a new pipe; save its identifier at *pipe idp. In case of any error, the value ERROR is returned.
-int
-KernelPipeInit(int *pipe_idp)
-{
-  int pipe_id = CreateSyncObject(PIPE);
-  if (pipe_id == -1) {
-    TracePrintf(1, "KernelCvarInit: failed to create sync object\n");
-    return -1;
-  }
-  *pipe_idp = pipe_id;
-  return 0;
 }
 
 int
