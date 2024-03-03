@@ -39,4 +39,10 @@ int KernelCvarWait(int cvar_id, int lock_id, UserContext* uc);
 // In case of any error, the value ERROR is returned.
 int KernelReclaim(int id);
 
+int KernelPipeInit(int *pipe_idp);
+
+int KernelPipeRead(int pipe_id, void *buf, int len, UserContext *uc);
+
+int KernelPipeWrite(int pipe_id, void *buf, int len);
+
 #endif

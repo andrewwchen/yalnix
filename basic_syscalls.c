@@ -8,12 +8,10 @@
 #include <frame_manager.h>
 #include <pcb.h>
 #include <pte_manager.h>
-
 #include "load_program.h"
 
+// Syscall which uses KCCopy utility to copy the parent pcb
 int KernelFork(){
-    // Syscall which uses KCCopy utility to copy the parent pcb
-
     // Create child pcb
     pcb_t *child_pcb = NewPCB();
 
@@ -89,10 +87,8 @@ int KernelFork(){
 
 }
 
+// Replace the currently running program in the calling process’s memory with the program stored in the file named by filename.
 int KernelExec(char *filename, char **argvec){
-    //Replace the currently running program in the calling process’s memory with the program stored in the file named by filename.
-    //Syscall which throws away process address space
-    ENTER;
     int rc = LoadProgram(filename, argvec, curr_pcb);
     TracePrintf(1, "----KernelExec-------- left load_program\n");
     if(rc == KILL){
@@ -109,6 +105,7 @@ int KernelExec(char *filename, char **argvec){
     return SUCCESS;
 }
 
+// syscall for exiting a process and saving exit status for later collection
 void KernelExit(UserContext *uc, int status){
     // if the initial process exits, halt the system
     int pid = curr_pcb->pid;
@@ -136,7 +133,7 @@ void KernelExit(UserContext *uc, int status){
     SwitchPCB(uc, 0, NULL);
 }
 
-
+// syscall for blocking a process until a child process exits
 int KernelWait(int *status_ptr){
     // Collect the process ID and exit status returned by a child process of the calling program.
 
@@ -158,13 +155,15 @@ int KernelWait(int *status_ptr){
     }
     return 0;
 }
+
+// Returns the process ID of the calling process.
 int KernelGetPid(){
-    //Returns the process ID of the calling process.
     return curr_pcb->pid;
 }
+
+// sets the operating system’s idea of the lowest location not used by the program (called the “break”) to addr
+// If any error is encountered , the value ERROR is returned.
 int KernelBrk(void *addr){
-    // sets the operating system’s idea of the lowest location not used by the program (called the “break”) to addr
-    //If any error is encountered , the value ERROR is returned.
     
     // check if addr is above red zone
     int red_zone = (int) (curr_pcb->uc.sp) - PAGESIZE;
@@ -214,6 +213,8 @@ int KernelBrk(void *addr){
     curr_pcb->brk = addr;
     return 0;
 }
+
+// syscall for blocking a process until a the specified number of clock ticks pass
 int KernelDelay(int clock_ticks){
     if (clock_ticks == 0) {
 		return 0;

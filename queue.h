@@ -34,6 +34,10 @@ void enQueue(struct Queue* q, pcb_t *pcb);
 //add element to the front of queue
 void enQueueFront(struct Queue* q, pcb_t *pcb);
 
+// pop an element from the front of the queue
 pcb_t *deQueue(struct Queue* q);
+
+// free a queue and its nodes, but not its contents
+void freeQueue(struct Queue* q);
 
 #endif
