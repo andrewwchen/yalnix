@@ -1,49 +1,26 @@
-// Contains string double-ended queue implementation based on queue.c
+// Contains buffer pointer double-ended queue implementation based on queue.c for a pipe
 //
 // Andrew Chen
 // 2/2024
 
 #include <stdlib.h>
+#include <deque.h>
 
-// linkedlist node
-struct TerminalLine {
-    char *string;
-    int len;
-};
-
-typedef struct TerminalLine TerminalLine_t;
-
-// linkedlist node
-struct DeqNode {
-    TerminalLine_t* line;
-    struct DeqNode* next;
-    struct DeqNode* prev;
-};
- 
-// front stores the first node of LL 
-// rear stores the last node of LL
-struct Deque {
-    struct DeqNode *front, *rear;
-};
-
-typedef struct Deque Deque_t;
-
-
-// create a new terminal line
-TerminalLine_t* newTerminalLine(char *string, int len)
+// create a new pipe entry
+PipeEntry_t* newPipeEntry(void *buf, int len)
 {
-    TerminalLine_t* temp = (TerminalLine_t*)malloc(sizeof(TerminalLine_t));
-    temp->string = string;
+    PipeEntry_t* temp = (PipeEntry_t*)malloc(sizeof(PipeEntry_t));
+    temp->buf = buf;
     temp->len = len;
     return temp;
 }
  
 
 // create a new node
-struct DeqNode* newDeqNode(TerminalLine_t* line)
+struct DeqNode* newDeqNode(PipeEntry_t* entry)
 {
     struct DeqNode* temp = (struct DeqNode*)malloc(sizeof(struct DeqNode));
-    temp->line = line;
+    temp->entry = entry;
     temp->next = NULL;
     temp->prev = NULL;
     return temp;
@@ -58,8 +35,9 @@ struct Deque* createDeque()
 }
  
 // add element to the end of deque
-void dequeAppendRight(struct Deque* q, TerminalLine_t* line) {
-    struct DeqNode* temp = newDeqNode(line);
+void dequeAppendRight(struct Deque* q, PipeEntry_t* entry) {
+    q->len += entry->len;
+    struct DeqNode* temp = newDeqNode(entry);
     if (q->rear == NULL) {
         q->front = q->rear = temp;
         return;
@@ -71,8 +49,9 @@ void dequeAppendRight(struct Deque* q, TerminalLine_t* line) {
 }
 
 //add element to the beginning of deque
-void dequeAppendLeft(struct Deque* q, TerminalLine_t* line){
-    struct DeqNode* temp = newDeqNode(line);
+void dequeAppendLeft(struct Deque* q, PipeEntry_t* entry){
+    q->len += entry->len;
+    struct DeqNode* temp = newDeqNode(entry);
     if (q->rear == NULL) {
         q->front = q->rear = temp;
         return;
@@ -85,7 +64,7 @@ void dequeAppendLeft(struct Deque* q, TerminalLine_t* line){
 
 
 // pop element from beginning of deque
-TerminalLine_t *dequePopLeft(struct Deque* q)
+PipeEntry_t *dequePopLeft(struct Deque* q)
 {
     // If deque is empty, return -1.
     if (q->front == NULL)
@@ -104,13 +83,14 @@ TerminalLine_t *dequePopLeft(struct Deque* q)
         q->front->prev = NULL;
     }
 
-    TerminalLine_t *line = temp->line;
+    PipeEntry_t *entry = temp->entry;
+    q->len -= entry->len;
     free(temp);
-    return line;
+    return entry;
 }
 
 // pop element from end of deque
-TerminalLine_t *dequePopRight(struct Deque* q)
+PipeEntry_t *dequePopRight(struct Deque* q)
 {
     // If deque is empty, return -1.
     if (q->front == NULL)
@@ -126,7 +106,8 @@ TerminalLine_t *dequePopRight(struct Deque* q)
         q->front = NULL;
     }
 
-    TerminalLine_t *line = temp->line;
+    PipeEntry_t *entry = temp->entry;
+    q->len -= entry->len;
     free(temp);
-    return line;
+    return entry;
 }

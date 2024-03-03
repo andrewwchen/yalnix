@@ -1,4 +1,4 @@
-// Contains syscall implementations for locks and cvars
+// Contains syscall implementations for locks and cvars and pipes
 //
 // Tamier Baoyin, Andrew Chen
 // 2/2024
@@ -9,10 +9,17 @@
 #include <queue.h>
 #include <process_controller.h>
 
+enum ObjectType {
+  LOCK,
+  CVAR,
+  PIPE,
+  RECLAIMED,
+};
+
 struct SyncNode {
-  int object_type; // indicates what kind of object this is: 0 for lock, 1 for cvar, 2 for pipe, 3 for reclaimed
-  int holder_id;   // LOCK: the id of the process currently holding the lock or cvar: is -1 when no one is holding it
-  void *queue;     // LOCK OR CVAR: pointer to a queue of pcbs waiting for this lock or cvar
+  enum ObjectType object_type; // indicates what kind of object this is
+  int holder_id;            // LOCK: the id of the process currently holding the lock or cvar: is -1 when no one is holding it
+  void *queue;              // LOCK OR CVAR: pointer to a queue of pcbs waiting for this lock or cvar
 };
 
 typedef struct SyncNode SyncNode_t;
@@ -26,7 +33,7 @@ void InitSyncObjects() {
 }
 
 // creates a sync object. returns the id of the new object. -1 is returned if error
-int CreateSyncObject(int object_type) {
+int CreateSyncObject(enum ObjectType object_type) {
   // enlarge array if necessary
   if (sync_objects_entries == sync_objects_size) {
     SyncNode_t *sync_objects_new = malloc(sync_objects_size * 2 * sizeof(SyncNode_t));
@@ -38,7 +45,7 @@ int CreateSyncObject(int object_type) {
     sync_objects = sync_objects_new;
   }
   
-  if (object_type == 0) { // lock
+  if (object_type == LOCK) { // lock
     sync_objects[sync_objects_entries].object_type = object_type;
     sync_objects[sync_objects_entries].holder_id = -1;
     sync_objects[sync_objects_entries].queue = createQueue();
@@ -46,14 +53,18 @@ int CreateSyncObject(int object_type) {
     sync_objects_entries += 1;
     return lock_id;
 
-  } else if (object_type == 1) { // cvar
+  } else if (object_type == CVAR) { // cvar
     sync_objects[sync_objects_entries].object_type = object_type;
     sync_objects[sync_objects_entries].queue = createQueue();
     int cvar_id = sync_objects_entries;
     sync_objects_entries += 1;
     return cvar_id;
 
-  } else if (object_type == 2) { // pipe
+  } else if (object_type == PIPE) { // pipe
+    sync_objects[sync_objects_entries].object_type = object_type;
+    int pipe_id = sync_objects_entries;
+    sync_objects_entries += 1;
+    return pipe_id;
   }
   TracePrintf(1, "CreateSyncObject: invalid object_type\n");
   return -1;
@@ -83,7 +94,7 @@ int KernelLockAcquire(int lock_id, UserContext* uc){
     return -1;
   }
   SyncNode_t *lock = &sync_objects[lock_id];
-  if (lock->object_type != 0) {
+  if (lock->object_type != LOCK) {
     TracePrintf(1, "KernelLockAcquire: lock_id does not correspond to a lock\n");
     return -1;
   }
@@ -119,7 +130,7 @@ int KernelLockRelease(int lock_id, UserContext* uc){
     return -1;
   }
   SyncNode_t *lock = &sync_objects[lock_id];
-  if (lock->object_type != 0) {
+  if (lock->object_type != LOCK) {
     TracePrintf(1, "KernelLockRelease: lock_id does not correspond to a lock\n");
     return -1;
   }
@@ -162,7 +173,7 @@ int KernelCvarSignal(int cvar_id){
     return -1;
   }
   SyncNode_t *cvar = &sync_objects[cvar_id];
-  if (cvar->object_type != 1) {
+  if (cvar->object_type != CVAR) {
     TracePrintf(1, "KernelCvarSignal: cvar_id does not correspond to a cvar\n");
     return -1;
   }
@@ -188,7 +199,7 @@ int KernelCvarBroadcast(int cvar_id){
     return -1;
   }
   SyncNode_t *cvar = &sync_objects[cvar_id];
-  if (cvar->object_type != 1) {
+  if (cvar->object_type != CVAR) {
     TracePrintf(1, "KernelCvarBroadcast: cvar_id does not correspond to a cvar\n");
     return -1;
   }
@@ -216,15 +227,8 @@ int KernelCvarWait(int cvar_id, int lock_id, UserContext *uc){
     return -1;
   }
   SyncNode_t *cvar = &sync_objects[cvar_id];
-  if (cvar->object_type != 1) {
+  if (cvar->object_type != CVAR) {
     TracePrintf(1, "KernelCvarWait: cvar_id does not correspond to a cvar\n");
-    return -1;
-  }
-
-  // release the lock
-  int rc = KernelLockRelease(lock_id, uc);
-  if (rc == -1) {
-    TracePrintf(1, "KernelCvarWait: failed to release lock\n");
     return -1;
   }
 
@@ -233,6 +237,13 @@ int KernelCvarWait(int cvar_id, int lock_id, UserContext *uc){
   enQueue(cvar->queue, curr_pcb);
   // switch off the current process until we get signalled or broadcasted
   SwitchPCB(uc, 0, NULL);
+
+  // release the lock
+  int rc = KernelLockRelease(lock_id, uc);
+  if (rc == -1) {
+    TracePrintf(1, "KernelCvarWait: failed to release lock\n");
+    return -1;
+  }
 
   // acquire the lock
   rc = KernelLockAcquire(lock_id, uc);
@@ -255,25 +266,61 @@ int KernelReclaim(int id){
     return -1;
   }
   SyncNode_t *object = &sync_objects[id];
-  if (object->object_type == 3) {
+  if (object->object_type == RECLAIMED) {
     TracePrintf(1, "KernelReclaim: object is already reclaimed\n");
     return -1;
   }
   
-  if (object->object_type == 0) { // lock
+  if (object->object_type == LOCK) { // lock
     free(object->queue);
     object->object_type = 3;
     return 0;
   }
   
-  if (object->object_type == 1) { // cvar
+  if (object->object_type == CVAR) { // cvar
     free(object->queue);
     object->object_type = 3;
     return 0;
   }
   
-  if (object->object_type == 2) { // pipe
+  if (object->object_type == PIPE) { // pipe
     object->object_type = 3;
     return 0;
   }
 }
+
+// Create a new pipe; save its identifier at *pipe idp. In case of any error, the value ERROR is returned.
+int
+KernelPipeInit(int *pipe_idp)
+{
+  int pipe_id = CreateSyncObject(2);
+  if (pipe_id == -1) {
+    TracePrintf(1, "KernelCvarInit: failed to create sync object\n");
+    return -1;
+  }
+  *pipe_idp = pipe_id;
+  return 0;
+}
+
+int
+KernelPipeRead(int pipe_id, void *buf, int len)
+{
+ // Read len consecutive bytes from the named pipe into the buffer starting at address buf, following the standard semantics:
+ // If the pipe is empty, then block the caller. – If the pipe has plen ≤ len unread bytes, give all of them to the caller and return.
+ // If the pipe has plen > len unread bytes, give the first len bytes to caller and return.
+ // Retain the unread plen − len bytes in the pipe.
+ // In case of any error, the value ERROR is returned.
+ // Otherwise, the return value is the number of bytes read.
+}
+
+int
+KernelPipeWrite(int pipe_id, void *buf, int len)
+{
+  /* Write the len bytes starting at buf to the named pipe. 
+  As the pipe is a FIFO buffer, these bytes should be appended to the sequence of unread bytes currently in the pipe.)
+  Return as soon as you get the bytes into the buffer. In case of any error, the value ERROR is returned.
+  Otherwise, return the number of bytes written.
+  Each pipe’s internal buffer should be at least PIPE BUFFER LEN bytes (see hardware.h).
+  A write that would leave not more than PIPE BUFFER LEN bytes in the pipe should never block.  */
+}
+
