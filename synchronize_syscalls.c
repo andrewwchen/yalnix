@@ -280,19 +280,21 @@ int KernelReclaim(int id){
   }
   
   if (object->object_type == LOCK) { // lock
-    free(object->queue);
+    freeQueue(object->queue);
     object->object_type = 3;
     return 0;
   }
   
   if (object->object_type == CVAR) { // cvar
-    free(object->queue);
+    freeQueue(object->queue);
     object->object_type = 3;
     return 0;
   }
   
   if (object->object_type == PIPE) { // pipe
     object->object_type = 3;
+    free(object->buf);
+    freeQueue(object->queue);
     return 0;
   }
 }

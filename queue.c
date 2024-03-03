@@ -65,6 +65,7 @@ void enQueueFront(struct Queue* q, pcb_t *pcb) {
     }
 }
 
+// pop an element from the front of the queue
 pcb_t *deQueue(struct Queue* q)
 {
     // If queue is empty, return -1.
@@ -83,4 +84,14 @@ pcb_t *deQueue(struct Queue* q)
     pcb_t *i = temp->pcb;
     free(temp);
     return i;
+}
+
+// free a queue and its nodes, but not its contents
+void freeQueue(struct Queue* q) {
+    while (q->front != NULL) {
+        struct QNode *next = q->front->next;
+        free(q->front);
+        q->front = next;
+    }
+    free(q);
 }
