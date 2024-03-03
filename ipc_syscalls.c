@@ -1,12 +1,32 @@
 // Contains PipeInit, PipeRead, and PipeWrite syscalls implementations
 //
-// Tamier Baoyin, Andrew Chen
+// Juan Suarez, Tamier Baoyin, Andrew Chen
 // 1/2024
+#include <stdlib.h>
+#include <stdio.h>
+#include <ipc.h>
+#include <ylib.h>
+#include <hardware.h>
+#include <ykernel.h>
 
 int
 KernelPipeInit(int *pipe_idp)
 {
-  // Create a new pipe; save its identifier at *pipe idp. In case of any error, the value ERROR is returned.
+	*pipe_idp = get_new_pipe_id()
+
+	pipe* new_pipe = get_new_pipe(*pipe_idp);	
+	if (new_pipe == NULL) {
+		TracePrintf(1, "KernelPipeInit: pipe not created\n");
+		return ERROR;
+	}
+
+	int rc = enqueue_pipe(new_pipe);
+	if (rc == -1) {
+		TracePrintf(1, "KernelPipeInit: error enqueueing pipe\n");
+		return ERROR;
+	}
+
+	return 0;
 }
 
 int
@@ -29,4 +49,22 @@ KernelPipeWrite(int pipe_id, void *buf, int len)
   Otherwise, return the number of bytes written.
   Each pipe’s internal buffer should be at least PIPE BUFFER LEN bytes (see hardware.h).
   A write that would leave not more than PIPE BUFFER LEN bytes in the pipe should never block.  */
+
+	pipe* pipe_to_write = find_pipe(pipe_id);
+	if (pipe_to_write == NULL) {
+		TracePrintf(1, "KernelPipeWrite: Pipe not found\n");
+		return ERROR;
+	}
+
+	if (len + pipe_to_write->len > PIPE_BUFFER_LEN) {
+		TracePrintf(1, "KernelPipeWrite: pipe is full\n");
+		return ERROR;
+	}
+
+	memcpy(pipe_to_write->buff + pipe_to_write->len, buf, sizeof(char) * len);
+	pipe_to_write->len += len;
+
+	return len;
+
+
 }
