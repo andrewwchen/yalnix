@@ -312,12 +312,40 @@ KernelPipeInit(int *pipe_idp)
 int
 KernelPipeRead(int pipe_id, void *buf, int len)
 {
- // Read len consecutive bytes from the named pipe into the buffer starting at address buf, following the standard semantics:
- // If the pipe is empty, then block the caller. – If the pipe has plen ≤ len unread bytes, give all of them to the caller and return.
- // If the pipe has plen > len unread bytes, give the first len bytes to caller and return.
- // Retain the unread plen − len bytes in the pipe.
- // In case of any error, the value ERROR is returned.
- // Otherwise, the return value is the number of bytes read.
+  // error checking
+  if (pipe_id < 0) {
+    TracePrintf(1, "KernelPipeRead: pipe_id below bounds\n");
+    return ERROR;
+  }
+  if (pipe_id >= sync_objects_entries) {
+    TracePrintf(1, "KernelPipeRead: pipe_id above bounds\n");
+    return ERROR;
+  }
+  SyncNode_t *pipe = &sync_objects[pipe_id];
+  if (pipe->object_type != PIPE) {
+    TracePrintf(1, "KernelPipeRead: pipe_id does not correspond to a pipe\n");
+    return ERROR;
+  }
+
+  if (pipe->len == 0) {
+  	// BLOCK HERE
+	// Should basically enqueue the process in the pipe's own queue
+	// and Switch to another process
+  }
+
+  if (pipe->len <= len) {
+  	memcpy(buf, pipe->buf, sizeof(char) * pipe->len);
+	memset(pipe->buf, 0, PIPE_BUFFER_LEN);
+	int length_copied = pipe->len;
+	pipe->len = 0;
+	return length_copied;	
+  }
+
+  memcpy(buf, pipe->buf, sizeof(char) * len);
+  memcpy(pipe->buf, pipe->buf + len, sizeof(char) * (pipe->len - len));
+  memset(pipe->buf + len, 0, PIPE_BUFFER_LEN - len);
+  pipe->len -= len;
+  return len;
 }
 
 int
@@ -329,37 +357,30 @@ KernelPipeWrite(int pipe_id, void *buf, int len)
   Otherwise, return the number of bytes written.
   Each pipe’s internal buffer should be at least PIPE BUFFER LEN bytes (see hardware.h).
   A write that would leave not more than PIPE BUFFER LEN bytes in the pipe should never block.  */
+	//
+  // error checking
+  if (pipe_id < 0) {
+    TracePrintf(1, "KernelPipeWrite: pipe_id below bounds\n");
+    return ERROR;
+  }
+  if (pipe_id >= sync_objects_entries) {
+    TracePrintf(1, "KernelPipeWrite: pipe_id above bounds\n");
+    return ERROR;
+  }
+  SyncNode_t *pipe = &sync_objects[pipe_id];
+  if (pipe->object_type != PIPE) {
+    TracePrintf(1, "KernelPipeWrite: pipe_id does not correspond to a pipe\n");
+    return ERROR;
+  }
+  
+  if ((pipe->len + len) > PIPE_BUFFER_LEN) {
+  	return ERROR;
+  }
 
-	pipe* pipe_to_write = find_pipe(pipe_id);
-	if (pipe_to_write == NULL) {
-		TracePrintf(1, "KernelPipeWrite: Pipe not found\n");
-		return ERROR;
-	}
-
-	if (len + pipe_to_write->len > PIPE_BUFFER_LEN) {
-		TracePrintf(1, "KernelPipeWrite: pipe is full\n");
-		return ERROR;
+  memcpy(pipe->buf + pipe->len, buf, sizeof(char) * len);
+  pipe->len += len;
+  // UNBLOCK BLOCKED PROCESS HERE
+  return len;
 }
 
-int
-KernelPipeRead(int pipe_id, void *buf, int len)
-{
- // Read len consecutive bytes from the named pipe into the buffer starting at address buf, following the standard semantics:
- // If the pipe is empty, then block the caller. – If the pipe has plen ≤ len unread bytes, give all of them to the caller and return.
- // If the pipe has plen > len unread bytes, give the first len bytes to caller and return.
- // Retain the unread plen − len bytes in the pipe.
- // In case of any error, the value ERROR is returned.
- // Otherwise, the return value is the number of bytes read.
-}
-
-int
-KernelPipeWrite(int pipe_id, void *buf, int len)
-{
-  /* Write the len bytes starting at buf to the named pipe. 
-  As the pipe is a FIFO buffer, these bytes should be appended to the sequence of unread bytes currently in the pipe.)
-  Return as soon as you get the bytes into the buffer. In case of any error, the value ERROR is returned.
-  Otherwise, return the number of bytes written.
-  Each pipe’s internal buffer should be at least PIPE BUFFER LEN bytes (see hardware.h).
-  A write that would leave not more than PIPE BUFFER LEN bytes in the pipe should never block.  */
-}
 
