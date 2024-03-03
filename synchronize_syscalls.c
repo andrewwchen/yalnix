@@ -73,7 +73,7 @@ int CreateSyncObject(enum ObjectType object_type) {
 
 // Create a new lock; save its identifier at *lock idp. In case of any error, the value ERROR is returned.
 int KernelLockInit(int *lock_idp){
-  int lock_id = CreateSyncObject(0);
+  int lock_id = CreateSyncObject(LOCK);
   if (lock_id == -1) {
     TracePrintf(1, "KernelLockInit: failed to create sync object\n");
     return -1;
@@ -152,7 +152,7 @@ int KernelLockRelease(int lock_id, UserContext* uc){
 
 // Create a new condition variable; save its identifier at *cvar idp. In case of any error, the value ERROR is returned.
 int KernelCvarInit(int *cvar_idp){
-  int cvar_id = CreateSyncObject(0);
+  int cvar_id = CreateSyncObject(CVAR);
   if (cvar_id == -1) {
     TracePrintf(1, "KernelCvarInit: failed to create sync object\n");
     return -1;
@@ -235,8 +235,6 @@ int KernelCvarWait(int cvar_id, int lock_id, UserContext *uc){
   // wait for the cvar
   // block the current process and add it to the cvar wait queue
   enQueue(cvar->queue, curr_pcb);
-  // switch off the current process until we get signalled or broadcasted
-  SwitchPCB(uc, 0, NULL);
 
   // release the lock
   int rc = KernelLockRelease(lock_id, uc);
@@ -244,6 +242,9 @@ int KernelCvarWait(int cvar_id, int lock_id, UserContext *uc){
     TracePrintf(1, "KernelCvarWait: failed to release lock\n");
     return -1;
   }
+  // switch off the current process until we get signalled or broadcasted
+  SwitchPCB(uc, 0, NULL);
+
 
   // acquire the lock
   rc = KernelLockAcquire(lock_id, uc);
@@ -293,7 +294,7 @@ int KernelReclaim(int id){
 int
 KernelPipeInit(int *pipe_idp)
 {
-  int pipe_id = CreateSyncObject(2);
+  int pipe_id = CreateSyncObject(PIPE);
   if (pipe_id == -1) {
     TracePrintf(1, "KernelCvarInit: failed to create sync object\n");
     return -1;
