@@ -28,7 +28,7 @@ KernelTtyRead(int tty_id, void *buf, int len, UserContext *uc)
   while (terminal_lines[tty_id] < 1) {
     // block and switch
     BlockTtyReader(tty_id, curr_pcb);
-    SwitchPCB(uc, 3);
+    SwitchPCB(uc, 0, NULL);
   }
   terminal_lines[tty_id] -= 1;
 
@@ -80,7 +80,7 @@ KernelTtyWrite(int tty_id, void *buf, int len, UserContext *uc)
     TtyTransmit(tty_id, string, this_len);
 
     // block and switch
-    SwitchPCB(uc, 4);
+    SwitchPCB(uc, 0, NULL);
 
     // prepare next iteration
     buf += this_len;

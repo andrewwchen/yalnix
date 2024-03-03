@@ -39,6 +39,8 @@ int UnblockTtyWriter(int tty_id);
 
 void AddPCB(pcb_t *pcb);
 
+void AddPCBFront(pcb_t *pcb);
+
 void AddChildWaitPCB(pcb_t *pcb);
 
 void BlockTtyReader(int tty_id, pcb_t *pcb);
@@ -50,6 +52,6 @@ KernelContext *KCCopy( KernelContext *kc_in, void *new_pcb_p, void *not_used);
 
 KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_p);
 
-void SwitchPCB(UserContext *uc, int requeue);
+void SwitchPCB(UserContext *uc, int requeue, pcb_t *ready_pcb_override);
 
 #endif

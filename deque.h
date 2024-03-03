@@ -1,4 +1,4 @@
-// Contains string double-ended queue implementation based on queue.c
+// Contains buffer pointer double-ended queue implementation based on queue.c for a pipe
 //
 // Andrew Chen
 // 2/2024
@@ -8,16 +8,16 @@
 #define _deque_h
 
 // linkedlist node
-struct TerminalLine {
-    char *string;
+struct PipeEntry {
+    void *buf;
     int len;
 };
 
-typedef struct TerminalLine TerminalLine_t;
+typedef struct PipeEntry PipeEntry_t;
 
 // linkedlist node
 struct DeqNode {
-    struct TerminalLine_t* line;
+    PipeEntry_t* entry;
     struct DeqNode* next;
     struct DeqNode* prev;
 };
@@ -26,30 +26,28 @@ struct DeqNode {
 // rear stores the last node of LL
 struct Deque {
     struct DeqNode *front, *rear;
+    int len;
 };
 
 typedef struct Deque Deque_t;
 
 
-// create a new terminal line
-TerminalLine_t* newTerminalLine(char *string, int len);
-
-// create a new node
-struct DeqNode* newDeqNode(TerminalLine_t* line);
+// create a new pipe entry
+PipeEntry_t* newPipeEntry(void *buf, int len);
  
 // create an empty deque
 struct Deque* createDeque();
  
 // add element to the end of deque
-void dequeAppendRight(struct Deque* q, TerminalLine_t* line);
+void dequeAppendRight(struct Deque* q, PipeEntry_t* entry);
 
 //add element to the beginning of deque
-void dequeAppendLeft(struct Deque* q, TerminalLine_t* line);
+void dequeAppendLeft(struct Deque* q, PipeEntry_t* entry);
 
 // pop element from beginning of deque
-TerminalLine_t *dequePopLeft(struct Deque* q);
+PipeEntry_t *dequePopLeft(struct Deque* q);
 
 // pop element from end of deque
-TerminalLine_t *dequePopRight(struct Deque* q);
+PipeEntry_t *dequePopRight(struct Deque* q);
 
 #endif

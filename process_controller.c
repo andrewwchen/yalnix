@@ -120,6 +120,14 @@ void AddPCB(pcb_t *pcb) {
   }
 }
 
+void AddPCBFront(pcb_t *pcb) {
+  if (pcb->delay_ticks > 0) {
+    enQueueFront(delay_wait_queue, pcb);
+  } else {
+    enQueueFront(ready_queue, pcb);
+  }
+}
+
 void AddChildWaitPCB(pcb_t *pcb) {
   enQueue(child_wait_queue, pcb);
 }
@@ -259,14 +267,18 @@ KernelContext *KCSwitch( KernelContext *kc_in, void *curr_pcb_p, void *next_pcb_
   return kcp;
 }
 
-// requeue == 0 -> Exit         (don't requeue)
-// requeue == 1 -> Clock, Delay (requeue)
-// requeue == 2 -> Wait         (wait queue)
-// requeue == 3 -> TtyRead      (tty_read queue)
-// requeue == 4 -> TtyWrite     (tty_write queue)
-void SwitchPCB(UserContext *uc, int requeue) {
-  // Use round-robin scheduling to context switch to the next process in the ready queue if it exists
-  pcb_t *ready_pcb = deQueue(ready_queue);
+// requeue == 0 -> Exit, TtyRead, TtyWrite, LockAcquire (don't requeue)
+// requeue == 1 -> Clock, Delay, LockRelease                         (requeue)
+// requeue == 2 -> Wait                    (wait queue)
+// ready_pcb_override == PCB  -> LockRelease
+// ready_pcb_override == NULL -> everything else
+void SwitchPCB(UserContext *uc, int requeue, pcb_t *ready_pcb_override) {
+  // use the ready_pcb_override pcb
+  pcb_t *ready_pcb = ready_pcb_override;
+  // otherwise use round-robin scheduling to context switch to the next process in the ready queue if it exists
+  if (ready_pcb == NULL) {
+    ready_pcb = deQueue(ready_queue);
+  }
 
   if (ready_pcb == NULL && requeue == 1) {
     TracePrintf(1,"SwitchPCB: No ready PCBs and requeuing, continue current process\n");
@@ -291,16 +303,6 @@ void SwitchPCB(UserContext *uc, int requeue) {
   // add to child wait queue
   if (requeue == 2) {
     AddChildWaitPCB(curr_pcb);
-  }
-
-  // add to tty read queue
-  else if (requeue == 3) {
-    // do nothing here
-  }
-
-  // add to tty write queue
-  else if (requeue == 4) {
-    // do nothing here
   }
 
   // Invoke your KCSwitch() function (Transitions 8 and 9) to change from the old process to the next process.

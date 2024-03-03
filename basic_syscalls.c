@@ -133,7 +133,7 @@ void KernelExit(UserContext *uc, int status){
     free(curr_pcb);
 
     // switch pcbs
-    SwitchPCB(uc, 0);
+    SwitchPCB(uc, 0, NULL);
 }
 
 

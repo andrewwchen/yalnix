@@ -31,6 +31,9 @@ struct Queue* createQueue();
 //add element to the end of queue
 void enQueue(struct Queue* q, pcb_t *pcb);
 
+//add element to the front of queue
+void enQueueFront(struct Queue* q, pcb_t *pcb);
+
 pcb_t *deQueue(struct Queue* q);
 
 #endif
