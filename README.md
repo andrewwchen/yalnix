@@ -36,9 +36,7 @@ basic_syscalls.c: Contains Fork, Exec, Exit, Wait, GetPid, Brk, and Delay syscal
 
 io_syscalls.c: Contains TtyRead and TtyWrite syscall implementations
 
-ipc_syscalls.c: Contains PipeInit, PipeRead, and PipeWrite syscalls implementations
-
-synchronize_syscalls.c: Contains syscall implementations for locks and cvars
+synchronize_syscalls.c: Contains syscall implementations for locks, cvars, and pipes
 
 kernel.h: Contains globals defined in kernel.c
 

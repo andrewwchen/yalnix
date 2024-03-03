@@ -11,14 +11,14 @@
 K_SRC_DIR = .
 
 # What are the kernel c and include files?
-K_SRCS = ./kernel.c ./pcb.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c ./queue.c ./deque.c ./process_controller.c ./basic_syscalls.c ./io_syscalls.c ./ipc_syscalls.c ./synchronize_syscalls.c
+K_SRCS = ./kernel.c ./pcb.c ./traps.c ./frame_manager.c ./pte_manager.c ./load_program.c ./queue.c ./deque.c ./process_controller.c ./basic_syscalls.c ./io_syscalls.c ./synchronize_syscalls.c
 K_INCS = 
 
 # Where's your user source?
 U_SRC_DIR = ./test
 
 # What are the user c and include files?
-U_SRCS = ./init.c ./cp3.c ./cp4.c ./exectest.c ./cp5.c
+U_SRCS = ./init.c ./cp3.c ./cp4.c ./exectest.c ./cp5.c ./zero.c ./forktest.c ./torture.c ./locktest.c ./cvartest.c
 U_INCS = 
 
 

@@ -7,6 +7,7 @@
 #include <kernel.h>
 #include <basic_syscalls.h>
 #include <process_controller.h>
+#include <synchronize_syscalls.h>
 #include <io_syscalls.h>
 
 void
@@ -26,6 +27,8 @@ TrapKernel(UserContext *uc)
   int pid;
   int len;
   int tty_id;
+  int lock_id;
+  int cvar_id;
   void *buf;
 
   TracePrintf(1,"Syscall Code: %x\n", syscall_number);
@@ -72,7 +75,7 @@ TrapKernel(UserContext *uc)
       int* status_ptr = (int *) (uc->regs[0]);
       rc = KernelWait(status_ptr);
       if (rc == 0) {
-        SwitchPCB(uc, 2);   
+        SwitchPCB(uc, 2, NULL);   
         if (status_ptr != NULL) {
           *status_ptr = uc->regs[1];
         }
@@ -97,7 +100,7 @@ TrapKernel(UserContext *uc)
       rc = KernelDelay(clock_ticks);
       uc->regs[0] = rc;
       if (rc == 0) {
-        SwitchPCB(uc, 1);
+        SwitchPCB(uc, 1, NULL);
       }
       break;
       
@@ -130,6 +133,49 @@ TrapKernel(UserContext *uc)
         uc->regs[0] = KernelTtyWrite(tty_id, buf, len, uc);
       }
       break;
+    case YALNIX_LOCK_INIT:
+      int *lock_idp = (int*)uc->regs[0];
+      TracePrintf(1,"KernelLockInit(lock_idp %x)\n", lock_idp);
+      rc = KernelLockInit(lock_idp);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_LOCK_ACQUIRE:
+      lock_id = uc->regs[0];
+      TracePrintf(1,"KernelLockAcquire(lock_id %d)\n", lock_id);
+      rc = KernelLockAcquire(lock_id, uc);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_LOCK_RELEASE:
+      lock_id = uc->regs[0];
+      TracePrintf(1,"KernelLockRelease(lock_id %d)\n", lock_id);
+      rc = KernelLockRelease(lock_id, uc);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_CVAR_INIT:
+      int *cvar_idp = (int*)uc->regs[0];
+      TracePrintf(1,"KernelCvarInit(cvar_idp %x)\n", cvar_idp);
+      rc = KernelCvarInit(cvar_idp);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_CVAR_WAIT:
+      cvar_id = uc->regs[0];
+      lock_id = uc->regs[1];
+      TracePrintf(1,"KernelCvarWait(cvar_id %d, lock_id %d)\n", cvar_id, lock_id);
+      rc = KernelCvarWait(cvar_id, lock_id, uc);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_CVAR_SIGNAL:
+      cvar_id = uc->regs[0];
+      TracePrintf(1,"KernelCvarSignal(cvar_id %d)\n", cvar_id);
+      rc = KernelCvarSignal(cvar_id);
+      uc->regs[0] = rc;
+      break;
+    case YALNIX_CVAR_BROADCAST:
+      cvar_id = uc->regs[0];
+      TracePrintf(1,"KernelCvarBroadcast(cvar_id %d)\n", cvar_id);
+      rc = KernelCvarBroadcast(cvar_id);
+      uc->regs[0] = rc;
+      break;
   }
 }
 
@@ -138,7 +184,7 @@ TrapClock(UserContext *uc)
 {
   TracePrintf(1,"Clock Trap\n");
   TickDelayedPCBs();
-  SwitchPCB(uc, 1);
+  SwitchPCB(uc, 1, NULL);
 }
 
 void
