@@ -81,6 +81,7 @@ int PopulatePTERegion(pte_t* pt, int start_page, int end_page, int prot) {
   return 0;
 }
 
+// Clears the PTE given
 int ClearPT(pte_t* pt) {
   for (int page = 0; page < MAX_PT_LEN; page++) {
     pte_t* pte = &pt[page];

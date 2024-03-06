@@ -10,12 +10,15 @@
 #include <synchronize_syscalls.h>
 #include <io_syscalls.h>
 
+// Unknown trap was thrown
 void
 TrapUnknown(UserContext *uc)
 {
   TracePrintf(1,"Unknown Trap\n");
 }
 
+// This trap is set off by the hardware
+// whenever the code needs a syscall
 void
 TrapKernel(UserContext *uc)
 {
@@ -202,6 +205,7 @@ TrapKernel(UserContext *uc)
   }
 }
 
+// This trap is set off by the hardware clock
 void
 TrapClock(UserContext *uc)
 {
@@ -210,6 +214,7 @@ TrapClock(UserContext *uc)
   SwitchPCB(uc, 1, NULL);
 }
 
+// This trap goes off on an illegal operatoin
 void
 TrapIllegal(UserContext *uc)
 {
@@ -221,6 +226,8 @@ TrapIllegal(UserContext *uc)
   KernelExit(uc, -1);
 }
 
+// This trap occurs whenever there's an error 
+// writing to or reading from memory
 void
 TrapMemory(UserContext *uc)
 {
@@ -244,6 +251,8 @@ TrapMemory(UserContext *uc)
   curr_pcb->uc.sp = uc->addr;
 }
 
+// This trap occurs whenever there's an illegal
+// math operation such as dividing by zero
 void TrapMath(UserContext *uc)
 {
   // Traceprintf 0 with process id and the type of math error

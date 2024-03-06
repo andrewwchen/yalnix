@@ -9,6 +9,7 @@
 #include <frame_manager.h>
 #include <pte_manager.h>
 
+// ExitNode Struct
 struct ExitNode {
     int pid;
     int status;
@@ -16,6 +17,8 @@ struct ExitNode {
 
 typedef struct ExitNode ExitNode_t;
 
+// global values for queues and other mechanisms
+// of storage for yalnix os
 ExitNode_t *exit_statuses;
 int exit_statuses_entries = 0;
 int exit_statuses_size = 4;
@@ -26,6 +29,7 @@ Queue_t *tty_read_queues[NUM_TERMINALS];
 pcb_t *tty_writers[NUM_TERMINALS];
 Queue_t *temp_queue;
 
+// Creates all the global values 
 void InitQueues() {
   exit_statuses = malloc(exit_statuses_size * sizeof(ExitNode_t));
   ready_queue = createQueue();
@@ -38,7 +42,9 @@ void InitQueues() {
   temp_queue = createQueue();
 }
 
+// saves given exit status for given pid
 void SaveExitStatus(int pid, int status) {
+  // create new exit status
   if (exit_statuses_entries == exit_statuses_size) {
     ExitNode_t *exit_statuses_new = malloc(exit_statuses_size * 2 * sizeof(ExitNode_t));
     for (int i = 0; i < exit_statuses_size; i++) {
@@ -48,11 +54,14 @@ void SaveExitStatus(int pid, int status) {
     free(exit_statuses);
     exit_statuses = exit_statuses_new;
   }
+  
+  // save on preexisting exit status entry
   exit_statuses[exit_statuses_entries].pid = pid;
   exit_statuses[exit_statuses_entries].status = status;
   exit_statuses_entries += 1;
 }
 
+// Gets given exit status
 int GetExitStatus(int pid) {
   for (int i = 0; i < exit_statuses_entries; i++) {
     if (exit_statuses[i].pid == pid) {

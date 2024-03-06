@@ -11,6 +11,9 @@
 
 void InitSyncObjects();
 
+// creates a sync object. returns the id of the new object. -1 is returned if error
+int CreateSyncObject(enum ObjectType object_type) {
+
 // Create a new lock; save its identifier at *lock idp. In case of any error, the value ERROR is returned.
 int KernelLockInit(int *lock_idp);
 

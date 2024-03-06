@@ -298,6 +298,8 @@ int KernelReclaim(int id){
     return 0;
   }
 }
+
+// KernelPipeInit initiates a pipe object
 int
 KernelPipeInit(int *pipe_idp)
 {
@@ -311,6 +313,7 @@ KernelPipeInit(int *pipe_idp)
   return 0;
 }
 
+// KernelPipeRead reads from a pipe into a buffer
 int
 KernelPipeRead(int pipe_id, void *buf, int len, UserContext *uc)
 {
@@ -352,16 +355,10 @@ KernelPipeRead(int pipe_id, void *buf, int len, UserContext *uc)
   return len;
 }
 
+// KernelPipeWrite writes to a pipe
 int
 KernelPipeWrite(int pipe_id, void *buf, int len)
 {
-  /* Write the len bytes starting at buf to the named pipe. 
-  As the pipe is a FIFO buffer, these bytes should be appended to the sequence of unread bytes currently in the pipe.)
-  Return as soon as you get the bytes into the buffer. In case of any error, the value ERROR is returned.
-  Otherwise, return the number of bytes written.
-  Each pipe’s internal buffer should be at least PIPE BUFFER LEN bytes (see hardware.h).
-  A write that would leave not more than PIPE BUFFER LEN bytes in the pipe should never block.  */
-	//
   // error checking
   if (pipe_id < 0) {
     TracePrintf(1, "KernelPipeWrite: pipe_id below bounds\n");

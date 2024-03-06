@@ -9,9 +9,11 @@
 // number of lines available to read on each terminal
 extern int terminal_lines[NUM_TERMINALS];
 
+// read from the tty terminal
 int
 KernelTtyRead(int tty_id, void *buf, int len, UserContext *uc);
 
+// write to the tty terminal
 int
 KernelTtyWrite(int tty_id, void *buf, int len, UserContext *uc);
 

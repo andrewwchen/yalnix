@@ -35,6 +35,9 @@ typedef struct Deque Deque_t;
 // create a new pipe entry
 PipeEntry_t* newPipeEntry(void *buf, int len);
  
+// create a new deque node
+struct DeqNode* newDeqNode(PipeEntry_t* entry)
+
 // create an empty deque
 struct Deque* createDeque();
  
